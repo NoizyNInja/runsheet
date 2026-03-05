@@ -13,25 +13,41 @@
 
   <script>
   // Register SW and ensure this page becomes controlled (some Samsung tablets need 1 reload)
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", async () => {
-      try {
-        await navigator.serviceWorker.register("./sw.js");
-        await navigator.serviceWorker.ready;
+  // ---- Install button logic (Android/Chrome) ----
+let deferredPrompt = null;
+const installBtn = document.getElementById("installBtn");
 
-        // If not yet controlled, reload ONCE so the SW takes control.
-        if (!navigator.serviceWorker.controller) {
-          if (!sessionStorage.getItem("swReloadedOnce")) {
-            sessionStorage.setItem("swReloadedOnce", "1");
-            location.reload();
-          }
-        }
-      } catch (e) {
-        console.log("Service worker registration failed:", e);
-      }
-    });
+function installHelpMessage() {
+  alert(
+    "Install isn't available yet on this device.\n\n" +
+    "Try this:\n" +
+    "1) Refresh the page once\n" +
+    "2) Tap ⋮ menu → Install app\n\n" +
+    "If you still only see 'Add to Home screen', Chrome hasn't marked it installable yet.\n" +
+    "The page usually needs to be controlled by the service worker (the app may reload once automatically)."
+  );
+}
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.textContent = "Install";
+});
+
+installBtn.addEventListener("click", async () => {
+  if (!deferredPrompt) {
+    installHelpMessage();
+    return;
   }
-</script>
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  installBtn.textContent = "Installed";
+});
+
+window.addEventListener("appinstalled", () => {
+  installBtn.textContent = "Installed";
+});
   <!-- Excel export library (SheetJS) -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
@@ -1103,4 +1119,5 @@
   </script>
 </body>
 </html>
+
 
