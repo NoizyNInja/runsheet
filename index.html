@@ -5,6 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Daily Run Sheet</title>
 
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#0b5fff">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="icon" href="./icons/icon-192.png">
+
+  <script>
+    // Register service worker (required for installability)
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js");
+      });
+    }
+  </script>
+
   <!-- Excel export library (SheetJS) -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
@@ -324,17 +339,6 @@
     }
   </style>
 </head>
-<link rel="manifest" href="./manifest.webmanifest">
-<meta name="theme-color" content="#0b5fff">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
-
-<script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js");
-    });
-  }
-</script>
 
 <body>
   <div class="topbar">
@@ -357,6 +361,9 @@
     </div>
 
     <div class="actions">
+      <!-- Install button (only shows when install is available) -->
+      <button type="button" id="installBtn" style="display:none;">Install</button>
+
       <button type="button" id="clearBtn">Clear This Day</button>
       <button type="button" id="exportBtn">Export Excel</button>
     </div>
@@ -436,6 +443,30 @@
   </div>
 
   <script>
+    // ---- Install button logic (Android/Chrome) ----
+    let deferredPrompt = null;
+    const installBtn = document.getElementById("installBtn");
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      // Prevent mini-infobar
+      e.preventDefault();
+      deferredPrompt = e;
+      if (installBtn) installBtn.style.display = "inline-block";
+    });
+
+    installBtn?.addEventListener("click", async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      if (installBtn) installBtn.style.display = "none";
+    });
+
+    window.addEventListener("appinstalled", () => {
+      if (installBtn) installBtn.style.display = "none";
+    });
+
+    // ---- App logic ----
     const JOB_COUNT = 20;
 
     const paymentOptions = ["Account", "Cash", "Credit", "Other"];
