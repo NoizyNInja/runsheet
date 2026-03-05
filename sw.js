@@ -1,12 +1,10 @@
-/* sw.js - offline cache (includes Excel export lib) */
-const CACHE_NAME = "runsheet-v2";
+/* sw.js - offline cache */
+const CACHE_NAME = "runsheet-v3";
 
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./sw.js",
-  "./libs/xlsx.full.min.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
 ];
@@ -31,10 +29,24 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // only same-origin
+  // Runtime cache for SheetJS CDN (so export works even after first load)
+  if (url.hostname === "cdn.sheetjs.com") {
+    event.respondWith(
+      caches.match(req).then((cached) => {
+        if (cached) return cached;
+        return fetch(req).then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          return res;
+        });
+      })
+    );
+    return;
+  }
+
+  // only same-origin for app shell
   if (url.origin !== self.location.origin) return;
 
-  // cache-first for app assets
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
