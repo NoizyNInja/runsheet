@@ -12,14 +12,26 @@
   <link rel="icon" href="./icons/icon-192.png">
 
   <script>
-    // Register service worker (required for installability)
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js");
-      });
-    }
-  </script>
+  // Register SW and ensure this page becomes controlled (some Samsung tablets need 1 reload)
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", async () => {
+      try {
+        await navigator.serviceWorker.register("./sw.js");
+        await navigator.serviceWorker.ready;
 
+        // If not yet controlled, reload ONCE so the SW takes control.
+        if (!navigator.serviceWorker.controller) {
+          if (!sessionStorage.getItem("swReloadedOnce")) {
+            sessionStorage.setItem("swReloadedOnce", "1");
+            location.reload();
+          }
+        }
+      } catch (e) {
+        console.log("Service worker registration failed:", e);
+      }
+    });
+  }
+</script>
   <!-- Excel export library (SheetJS) -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
@@ -362,7 +374,7 @@
 
     <div class="actions">
       <!-- Install button (only shows when install is available) -->
-      <button type="button" id="installBtn" style="display:none;">Install</button>
+      <button type="button" id="installBtn">Install</button>
 
       <button type="button" id="clearBtn">Clear This Day</button>
       <button type="button" id="exportBtn">Export Excel</button>
@@ -1091,3 +1103,4 @@
   </script>
 </body>
 </html>
+
