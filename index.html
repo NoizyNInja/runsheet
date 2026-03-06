@@ -12,49 +12,27 @@
   <link rel="icon" href="./icons/icon-192.png">
 
   <script>
-  // Register SW and ensure this page becomes controlled (some Samsung tablets need 1 reload)
-  // ---- Install button logic (Android/Chrome) ----
-let deferredPrompt = null;
-const installBtn = document.getElementById("installBtn");
+    // Register SW and ensure the page becomes controlled (some Samsung tablets need 1 reload)
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", async () => {
+        try {
+          await navigator.serviceWorker.register("./sw.js");
+          await navigator.serviceWorker.ready;
 
-function showInstallStatus() {
-  const controlled = !!navigator.serviceWorker.controller;
-  const standalone =
-    window.matchMedia("(display-mode: standalone)").matches ||
-    window.navigator.standalone === true;
+          // If not yet controlled, reload ONCE so the SW takes control.
+          if (!navigator.serviceWorker.controller) {
+            if (!sessionStorage.getItem("swReloadedOnce")) {
+              sessionStorage.setItem("swReloadedOnce", "1");
+              location.reload();
+            }
+          }
+        } catch (e) {
+          console.log("Service worker registration failed:", e);
+        }
+      });
+    }
+  </script>
 
-  alert(
-    "Install prompt not available.\n\n" +
-    "Service worker controlling page: " + controlled + "\n" +
-    "Already running as app: " + standalone + "\n" +
-    "beforeinstallprompt captured: " + !!deferredPrompt + "\n\n" +
-    "If controlling page is false, reload once more.\n" +
-    "If controlling page is true and prompt is still false, Chrome on this tablet is refusing to offer install."
-  );
-}
-
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  installBtn.textContent = "Install now";
-});
-
-installBtn.addEventListener("click", async () => {
-  if (!deferredPrompt) {
-    showInstallStatus();
-    return;
-  }
-
-  deferredPrompt.prompt();
-  const choice = await deferredPrompt.userChoice;
-  console.log("Install choice:", choice);
-  deferredPrompt = null;
-  installBtn.textContent = "Installed";
-});
-
-window.addEventListener("appinstalled", () => {
-  installBtn.textContent = "Installed";
-});
   <!-- Excel export library (SheetJS) -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
@@ -396,7 +374,7 @@ window.addEventListener("appinstalled", () => {
     </div>
 
     <div class="actions">
-      <!-- Install button (only shows when install is available) -->
+      <!-- Always visible (shows help if install not available yet) -->
       <button type="button" id="installBtn">Install</button>
 
       <button type="button" id="clearBtn">Clear This Day</button>
@@ -479,26 +457,48 @@ window.addEventListener("appinstalled", () => {
 
   <script>
     // ---- Install button logic (Android/Chrome) ----
+    // Button always works:
+    // - If install is available, it will prompt.
+    // - If not, it shows a status popup so you can see what's missing.
     let deferredPrompt = null;
     const installBtn = document.getElementById("installBtn");
 
+    function showInstallStatus() {
+      const controlled = !!navigator.serviceWorker.controller;
+      const standalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true;
+
+      alert(
+        "Install prompt not available.\n\n" +
+        "Service worker controlling page: " + controlled + "\n" +
+        "Already running as app: " + standalone + "\n" +
+        "beforeinstallprompt captured: " + !!deferredPrompt + "\n\n" +
+        "If controlling page is false, reload once more.\n" +
+        "If controlling page is true and prompt is still false, Chrome is refusing to offer install on this device.\n" +
+        "In that case, use ⋮ menu → Add to Home screen (it should still open as standalone)."
+      );
+    }
+
     window.addEventListener("beforeinstallprompt", (e) => {
-      // Prevent mini-infobar
       e.preventDefault();
       deferredPrompt = e;
-      if (installBtn) installBtn.style.display = "inline-block";
+      installBtn.textContent = "Install now";
     });
 
-    installBtn?.addEventListener("click", async () => {
-      if (!deferredPrompt) return;
+    installBtn.addEventListener("click", async () => {
+      if (!deferredPrompt) {
+        showInstallStatus();
+        return;
+      }
       deferredPrompt.prompt();
       await deferredPrompt.userChoice;
       deferredPrompt = null;
-      if (installBtn) installBtn.style.display = "none";
+      installBtn.textContent = "Installed";
     });
 
     window.addEventListener("appinstalled", () => {
-      if (installBtn) installBtn.style.display = "none";
+      installBtn.textContent = "Installed";
     });
 
     // ---- App logic ----
@@ -734,398 +734,4 @@ window.addEventListener("appinstalled", () => {
       if (!data) return;
       controls.time.value = data.time || "";
       controls.customer.value = data.customer || "";
-      controls.invoice.value = data.invoice || "";
-      controls.payment.value = data.payment || "Account";
-      controls.amount.value = data.amount || "";
-      controls.jobTypes._chips.setSelected(data.jobTypes || []);
-      controls.vehicle.value = data.vehicle || "";
-      controls.rego.value = data.rego || "";
-      controls.invoiced.checked = !!data.invoiced;
-      controls.emailed.checked = !!data.emailed;
-    }
-
-    // ---- Totals ----
-    function parseAmountToNumber(value){
-      if (value == null) return 0;
-      const s = String(value).trim();
-      if (!s) return 0;
-      const cleaned = s.replace(/[^0-9.\-]/g, "");
-      const n = Number(cleaned);
-      return Number.isFinite(n) ? n : 0;
-    }
-
-    function money(n){
-      return n.toLocaleString(undefined, { style:"currency", currency:"AUD" });
-    }
-
-    function updateTotals(dateStr){
-      let jobs = 0;
-      let total = 0;
-      const byPay = { Account: 0, Cash: 0, Credit: 0, Other: 0 };
-
-      for (let i=1; i<=JOB_COUNT; i++){
-        const d = loadRow(dateStr, i);
-        if (!d) continue;
-
-        if (rowHasAnyData(d)) jobs++;
-
-        const amt = parseAmountToNumber(d.amount);
-        total += amt;
-
-        const pay = (d.payment || "").trim();
-        if (byPay.hasOwnProperty(pay)) byPay[pay] += amt;
-        else if (amt !== 0) byPay.Other += amt;
-      }
-
-      jobsCountEl.textContent = String(jobs);
-      totalAmountEl.textContent = money(total);
-      sumAccountEl.textContent = money(byPay.Account);
-      sumCashEl.textContent = money(byPay.Cash);
-      sumCreditEl.textContent = money(byPay.Credit);
-      sumOtherEl.textContent = money(byPay.Other);
-    }
-
-    function buildTableForDate(dateStr) {
-      bodyRows.innerHTML = "";
-
-      for (let i=1; i<=JOB_COUNT; i++) {
-        const tr = document.createElement("tr");
-
-        const tdNum = document.createElement("td");
-        tdNum.className = "rownum";
-        tdNum.textContent = i;
-        tr.appendChild(tdNum);
-
-        const controls = {
-          time: makeTimeInput(),
-          customer: makeTextInput("Customer name"),
-          invoice: makeTextInput("e.g. 12345"),
-          payment: makeSelect(paymentOptions),
-          amount: makeAmountInput(),
-          jobTypes: makeChips(jobTypeOptions),
-          vehicle: makeTextInput("e.g. Hilux"),
-          rego: makeTextInput("e.g. 123ABC"),
-          invoiced: makeCheckbox(),
-          emailed: makeCheckbox(),
-        };
-
-        controls.payment.value = "Account";
-
-        controls.rego.classList.add("rego");
-        controls.rego.addEventListener("input", () => {
-          controls.rego.value = controls.rego.value.toUpperCase();
-        });
-
-        const addCell = (el) => {
-          const td = document.createElement("td");
-          td.appendChild(el);
-          tr.appendChild(td);
-        };
-
-        addCell(controls.time);
-        addCell(controls.customer);
-        addCell(controls.invoice);
-        addCell(controls.payment);
-        addCell(controls.amount);
-        addCell(controls.jobTypes);
-        addCell(controls.vehicle);
-        addCell(controls.rego);
-
-        const tdInv = document.createElement("td");
-        tdInv.style.textAlign = "center";
-        const invWrap = document.createElement("div");
-        invWrap.className = "tick";
-        invWrap.appendChild(controls.invoiced);
-        tdInv.appendChild(invWrap);
-        tr.appendChild(tdInv);
-
-        const tdEmail = document.createElement("td");
-        tdEmail.style.textAlign = "center";
-        const emWrap = document.createElement("div");
-        emWrap.className = "tick";
-        emWrap.appendChild(controls.emailed);
-        tdEmail.appendChild(emWrap);
-        tr.appendChild(tdEmail);
-
-        const saved = loadRow(dateStr, i);
-        applyRowData(controls, saved);
-
-        const save = () => {
-          saveRow(dateStr, i, collectRowData(controls));
-          updateTotals(dateStr);
-        };
-
-        [controls.time, controls.customer, controls.invoice, controls.payment, controls.amount, controls.vehicle, controls.rego]
-          .forEach(ctrl => {
-            ctrl.addEventListener("change", save);
-            ctrl.addEventListener("input", save);
-          });
-
-        [controls.invoiced, controls.emailed].forEach(cb => cb.addEventListener("change", save));
-        controls.jobTypes.addEventListener("change", save);
-
-        bodyRows.appendChild(tr);
-      }
-
-      for (let i=1; i<=JOB_COUNT; i++){
-        const d = loadRow(dateStr, i);
-        if (d && rowHasAnyData(d)){ addDayToIndex(dateStr); break; }
-      }
-
-      refreshSavedDaysDropdown(dateStr);
-      updateTotals(dateStr);
-    }
-
-    // ---- Export modal logic ----
-    function openExportModal(){
-      buildDayChecklist();
-      exportModal.style.display = "flex";
-    }
-
-    function closeExportModal(){
-      exportModal.style.display = "none";
-    }
-
-    function buildDayChecklist(){
-      const idx = getDaysIndex().slice().sort(); // oldest->newest for easier selection
-      dayListEl.innerHTML = "";
-
-      const daysToShow = idx.length ? idx : [sheetDate.value];
-      daysToShow.forEach(day => {
-        const row = document.createElement("label");
-        row.className = "dayItem";
-
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.value = day;
-
-        // default selection: current day if exists, else all if only one
-        if (day === sheetDate.value) cb.checked = true;
-
-        const text = document.createElement("div");
-        text.textContent = day;
-
-        row.appendChild(cb);
-        row.appendChild(text);
-        dayListEl.appendChild(row);
-      });
-
-      // If current day not in list (e.g. unsaved), show it too
-      const hasCurrent = daysToShow.includes(sheetDate.value);
-      if (!hasCurrent){
-        const row = document.createElement("label");
-        row.className = "dayItem";
-
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.value = sheetDate.value;
-        cb.checked = true;
-
-        const text = document.createElement("div");
-        text.textContent = `${sheetDate.value} (current)`;
-
-        row.appendChild(cb);
-        row.appendChild(text);
-        dayListEl.insertBefore(row, dayListEl.firstChild);
-      }
-    }
-
-    function setAllChecks(state){
-      dayListEl.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = state);
-    }
-
-    function selectCurrentOnly(){
-      const current = sheetDate.value;
-      dayListEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-        cb.checked = (cb.value === current);
-      });
-    }
-
-    function getSelectedDaysFromModal(){
-      const selected = [];
-      dayListEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-        if (cb.checked) selected.push(cb.value);
-      });
-      // de-dupe and sort
-      return Array.from(new Set(selected)).sort();
-    }
-
-    // ---- Excel export (selected days) ----
-    function exportExcelSelectedDays(selectedDays) {
-      if (typeof XLSX === "undefined") {
-        alert("Excel export library failed to load. Check internet connection.");
-        return;
-      }
-      if (!selectedDays || !selectedDays.length){
-        alert("Select at least one day to export.");
-        return;
-      }
-
-      const wb = XLSX.utils.book_new();
-
-      for (const day of selectedDays) {
-        const header = [
-          "Row","Time","Customer","Invoice","Payment","Amount","Job Types","Vehicle","Rego","Invoiced","Emailed"
-        ];
-
-        const rows = [header];
-
-        let jobs = 0;
-        let total = 0;
-        const byPay = { Account: 0, Cash: 0, Credit: 0, Other: 0 };
-
-        for (let i = 1; i <= JOB_COUNT; i++) {
-          const data = loadRow(day, i) || {};
-          const jobTypes = (data.jobTypes || []).join(", ");
-
-          if (rowHasAnyData(data)) jobs++;
-
-          const amt = parseAmountToNumber(data.amount);
-          total += amt;
-
-          const pay = (data.payment || "").trim();
-          if (byPay.hasOwnProperty(pay)) byPay[pay] += amt;
-          else if (amt !== 0) byPay.Other += amt;
-
-          rows.push([
-            i,
-            data.time || "",
-            data.customer || "",
-            data.invoice || "",
-            data.payment || "",
-            amt || 0,
-            jobTypes,
-            data.vehicle || "",
-            (data.rego || "").toUpperCase(),
-            data.invoiced ? "YES" : "",
-            data.emailed ? "YES" : ""
-          ]);
-        }
-
-        rows.push([]);
-        rows.push(["Totals"]);
-        rows.push(["Jobs entered", jobs]);
-        rows.push(["Total amount", total]);
-        rows.push([]);
-        rows.push(["By payment type"]);
-        rows.push(["Account", byPay.Account]);
-        rows.push(["Cash", byPay.Cash]);
-        rows.push(["Credit", byPay.Credit]);
-        rows.push(["Other", byPay.Other]);
-
-        const ws = XLSX.utils.aoa_to_sheet(rows);
-
-        ws["!cols"] = [
-          { wch:5 }, { wch:10 }, { wch:35 }, { wch:12 }, { wch:12 },
-          { wch:12 }, { wch:22 }, { wch:25 }, { wch:12 }, { wch:10 }, { wch:10 }
-        ];
-
-        // Bold headers
-        for (let c = 0; c < header.length; c++) {
-          const addr = XLSX.utils.encode_cell({ r: 0, c });
-          if (ws[addr]) {
-            ws[addr].s = ws[addr].s || {};
-            ws[addr].s.font = { bold: true };
-          }
-        }
-
-        // Currency for Amount column job rows
-        const amountCol = 5;
-        for (let r = 1; r <= JOB_COUNT; r++) {
-          const addr = XLSX.utils.encode_cell({ r, c: amountCol });
-          if (ws[addr]) ws[addr].z = '$#,##0.00';
-        }
-
-        // Totals formatting (0-based)
-        const rBlank1 = 1 + JOB_COUNT;
-        const rTotalsTitle = rBlank1 + 1;
-        const rTotalAmount = rTotalsTitle + 2;
-        const rByTitle = rTotalsTitle + 4;
-        const rAccount = rTotalsTitle + 5;
-        const rCash = rTotalsTitle + 6;
-        const rCredit = rTotalsTitle + 7;
-        const rOther = rTotalsTitle + 8;
-
-        [rTotalsTitle, rByTitle].forEach(r => {
-          const addr = XLSX.utils.encode_cell({ r, c: 0 });
-          if (ws[addr]) {
-            ws[addr].s = ws[addr].s || {};
-            ws[addr].s.font = { bold: true };
-          }
-        });
-
-        [rTotalAmount, rAccount, rCash, rCredit, rOther].forEach(r => {
-          const addr = XLSX.utils.encode_cell({ r, c: 1 });
-          if (ws[addr]) ws[addr].z = '$#,##0.00';
-        });
-
-        // Bold total amount number
-        {
-          const addr = XLSX.utils.encode_cell({ r: rTotalAmount, c: 1 });
-          if (ws[addr]) {
-            ws[addr].s = ws[addr].s || {};
-            ws[addr].s.font = { bold: true };
-          }
-        }
-
-        const sheetName = String(day).slice(0, 31);
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      }
-
-      const fileName =
-        selectedDays.length > 1
-          ? `run-sheets-${selectedDays[0]}_to_${selectedDays[selectedDays.length - 1]}.xlsx`
-          : `run-sheet-${selectedDays[0]}.xlsx`;
-
-      XLSX.writeFile(wb, fileName);
-    }
-
-    // Initial render
-    refreshSavedDaysDropdown();
-    buildTableForDate(sheetDate.value);
-
-    sheetDate.addEventListener("change", () => {
-      buildTableForDate(sheetDate.value);
-    });
-
-    goSavedBtn.addEventListener("click", () => {
-      if (!savedDays.value) return;
-      sheetDate.value = savedDays.value;
-      buildTableForDate(sheetDate.value);
-    });
-
-    document.getElementById("clearBtn").addEventListener("click", () => {
-      const d = sheetDate.value;
-      clearDate(d);
-      buildTableForDate(d);
-    });
-
-    // Export button now opens selection modal
-    document.getElementById("exportBtn").addEventListener("click", () => {
-      openExportModal();
-    });
-
-    closeExportModalBtn.addEventListener("click", closeExportModal);
-    exportModal.addEventListener("click", (e) => {
-      if (e.target === exportModal) closeExportModal();
-    });
-
-    selectAllDaysBtn.addEventListener("click", () => setAllChecks(true));
-    selectNoneDaysBtn.addEventListener("click", () => setAllChecks(false));
-    selectCurrentDayBtn.addEventListener("click", selectCurrentOnly);
-
-    exportSelectedBtn.addEventListener("click", () => {
-      const days = getSelectedDaysFromModal();
-      if (!days.length) {
-        alert("Select at least one day to export.");
-        return;
-      }
-      closeExportModal();
-      exportExcelSelectedDays(days);
-    });
-  </script>
-</body>
-</html>
-
-
-
+      controls.invoice.value = data.invoice |
