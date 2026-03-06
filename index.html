@@ -19,7 +19,6 @@
           await navigator.serviceWorker.register("./sw.js");
           await navigator.serviceWorker.ready;
 
-          // If not yet controlled, reload ONCE so the SW takes control.
           if (!navigator.serviceWorker.controller) {
             if (!sessionStorage.getItem("swReloadedOnce")) {
               sessionStorage.setItem("swReloadedOnce", "1");
@@ -453,286 +452,563 @@
   </div>
 
   <script>
-    // ---- Install button logic (Android/Chrome) ----
-    let deferredPrompt = null;
-    const installBtn = document.getElementById("installBtn");
+    document.addEventListener("DOMContentLoaded", () => {
+      // ---- Install button logic (Android/Chrome) ----
+      let deferredPrompt = null;
+      const installBtn = document.getElementById("installBtn");
 
-    function showInstallStatus() {
-      const controlled = !!navigator.serviceWorker.controller;
-      const standalone =
-        window.matchMedia("(display-mode: standalone)").matches ||
-        window.navigator.standalone === true;
+      function showInstallStatus() {
+        const controlled = !!navigator.serviceWorker.controller;
+        const standalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          window.navigator.standalone === true;
 
-      alert(
-        "Install prompt not available.\n\n" +
-        "Service worker controlling page: " + controlled + "\n" +
-        "Already running as app: " + standalone + "\n" +
-        "beforeinstallprompt captured: " + !!deferredPrompt + "\n\n" +
-        "If controlling page is false, reload once more.\n" +
-        "If controlling page is true and prompt is still false, use ⋮ menu → Add to Home screen."
-      );
-    }
-
-    window.addEventListener("beforeinstallprompt", (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      installBtn.textContent = "Install now";
-    });
-
-    installBtn.addEventListener("click", async () => {
-      if (!deferredPrompt) {
-        showInstallStatus();
-        return;
+        alert(
+          "Install prompt not available.\n\n" +
+          "Service worker controlling page: " + controlled + "\n" +
+          "Already running as app: " + standalone + "\n" +
+          "beforeinstallprompt captured: " + !!deferredPrompt + "\n\n" +
+          "If controlling page is false, refresh once.\n" +
+          "If controlling page is true and prompt is still false, use ⋮ menu → Add to Home screen."
+        );
       }
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      deferredPrompt = null;
-      installBtn.textContent = "Installed";
-    });
 
-    window.addEventListener("appinstalled", () => {
-      installBtn.textContent = "Installed";
-    });
-
-    // ---- App logic ----
-    const JOB_COUNT = 20;
-
-    const paymentOptions = ["Account", "Cash", "Credit", "Other"];
-    const jobTypeOptions = ["DMF", "DMR", "DR", "FLY", "CLUTCH", "OTHER"];
-
-    // Vehicle Type LIST (dropdown)
-    const vehicleTypeOptions = [
-      "Car",
-      "SUV/4WD",
-      "Ute",
-      "Van",
-      "Truck",
-      "Trailer",
-      "Other"
-    ];
-
-    const bodyRows = document.getElementById("bodyRows");
-    const sheetDate = document.getElementById("sheetDate");
-    const savedDays = document.getElementById("savedDays");
-    const goSavedBtn = document.getElementById("goSavedBtn");
-
-    // Totals elements
-    const jobsCountEl = document.getElementById("jobsCount");
-    const totalAmountEl = document.getElementById("totalAmount");
-    const sumAccountEl = document.getElementById("sumAccount");
-    const sumCashEl = document.getElementById("sumCash");
-    const sumCreditEl = document.getElementById("sumCredit");
-    const sumOtherEl = document.getElementById("sumOther");
-
-    // Export modal elements
-    const exportModal = document.getElementById("exportModal");
-    const closeExportModalBtn = document.getElementById("closeExportModal");
-    const dayListEl = document.getElementById("dayList");
-    const selectAllDaysBtn = document.getElementById("selectAllDaysBtn");
-    const selectNoneDaysBtn = document.getElementById("selectNoneDaysBtn");
-    const selectCurrentDayBtn = document.getElementById("selectCurrentDayBtn");
-    const exportSelectedBtn = document.getElementById("exportSelectedBtn");
-
-    // --- Saved-days index ---
-    const INDEX_KEY = "runsheet:daysIndex";
-
-    function getDaysIndex(){
-      try { return JSON.parse(localStorage.getItem(INDEX_KEY) || "[]"); }
-      catch { return []; }
-    }
-
-    function setDaysIndex(list){
-      const unique = Array.from(new Set(list)).sort((a,b)=> b.localeCompare(a));
-      localStorage.setItem(INDEX_KEY, JSON.stringify(unique));
-    }
-
-    function refreshSavedDaysDropdown(selectDateStr=""){
-      const idx = getDaysIndex();
-      savedDays.innerHTML = "";
-      const none = document.createElement("option");
-      none.value = "";
-      none.textContent = idx.length ? "(choose)" : "(none)";
-      savedDays.appendChild(none);
-
-      idx.forEach(d => {
-        const opt = document.createElement("option");
-        opt.value = d;
-        opt.textContent = d;
-        savedDays.appendChild(opt);
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installBtn.textContent = "Install now";
       });
 
-      if (selectDateStr && idx.includes(selectDateStr)) savedDays.value = selectDateStr;
-    }
+      installBtn.addEventListener("click", async () => {
+        if (!deferredPrompt) {
+          showInstallStatus();
+          return;
+        }
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        installBtn.textContent = "Installed";
+      });
 
-    function addDayToIndex(dateStr){
-      const idx = getDaysIndex();
-      if (!idx.includes(dateStr)){
-        idx.push(dateStr);
-        setDaysIndex(idx);
+      window.addEventListener("appinstalled", () => {
+        installBtn.textContent = "Installed";
+      });
+
+      // ---- App logic ----
+      const JOB_COUNT = 20;
+
+      const paymentOptions = ["Account", "Cash", "Credit", "Other"];
+      const jobTypeOptions = ["DMF", "DMR", "DR", "FLY", "CLUTCH", "OTHER"];
+      const vehicleTypeOptions = ["Car", "SUV/4WD", "Ute", "Van", "Truck", "Trailer", "Other"];
+
+      const bodyRows = document.getElementById("bodyRows");
+      const sheetDate = document.getElementById("sheetDate");
+      const savedDays = document.getElementById("savedDays");
+      const goSavedBtn = document.getElementById("goSavedBtn");
+
+      const jobsCountEl = document.getElementById("jobsCount");
+      const totalAmountEl = document.getElementById("totalAmount");
+      const sumAccountEl = document.getElementById("sumAccount");
+      const sumCashEl = document.getElementById("sumCash");
+      const sumCreditEl = document.getElementById("sumCredit");
+      const sumOtherEl = document.getElementById("sumOther");
+
+      const exportModal = document.getElementById("exportModal");
+      const closeExportModalBtn = document.getElementById("closeExportModal");
+      const dayListEl = document.getElementById("dayList");
+      const selectAllDaysBtn = document.getElementById("selectAllDaysBtn");
+      const selectNoneDaysBtn = document.getElementById("selectNoneDaysBtn");
+      const selectCurrentDayBtn = document.getElementById("selectCurrentDayBtn");
+      const exportSelectedBtn = document.getElementById("exportSelectedBtn");
+
+      // --- Saved-days index ---
+      const INDEX_KEY = "runsheet:daysIndex";
+
+      function getDaysIndex(){
+        try { return JSON.parse(localStorage.getItem(INDEX_KEY) || "[]"); }
+        catch { return []; }
       }
-      refreshSavedDaysDropdown(dateStr);
-    }
 
-    function rowHasAnyData(d){
-      const jobTypes = (d.jobTypes || []).length;
-      return !!(
-        (d.time && d.time.trim()) ||
-        (d.invoice && d.invoice.trim()) ||
-        (d.customer && d.customer.trim()) ||
-        (d.payment && d.payment.trim()) ||
-        (d.amount && String(d.amount).trim()) ||
-        jobTypes ||
-        (d.vehicle && d.vehicle.trim()) ||
-        (d.rego && d.rego.trim()) ||
-        d.invoiced ||
-        d.emailed
-      );
-    }
+      function setDaysIndex(list){
+        const unique = Array.from(new Set(list)).sort((a,b)=> b.localeCompare(a));
+        localStorage.setItem(INDEX_KEY, JSON.stringify(unique));
+      }
 
-    function removeDayFromIndexIfEmpty(dateStr){
-      let hasData = false;
-      for (let i=1; i<=JOB_COUNT; i++){
-        const data = loadRow(dateStr, i);
-        if (data && rowHasAnyData(data)){
-          hasData = true;
-          break;
+      function refreshSavedDaysDropdown(selectDateStr=""){
+        const idx = getDaysIndex();
+        savedDays.innerHTML = "";
+        const none = document.createElement("option");
+        none.value = "";
+        none.textContent = idx.length ? "(choose)" : "(none)";
+        savedDays.appendChild(none);
+
+        idx.forEach(d => {
+          const opt = document.createElement("option");
+          opt.value = d;
+          opt.textContent = d;
+          savedDays.appendChild(opt);
+        });
+
+        if (selectDateStr && idx.includes(selectDateStr)) savedDays.value = selectDateStr;
+      }
+
+      function addDayToIndex(dateStr){
+        const idx = getDaysIndex();
+        if (!idx.includes(dateStr)){
+          idx.push(dateStr);
+          setDaysIndex(idx);
+        }
+        refreshSavedDaysDropdown(dateStr);
+      }
+
+      function rowHasAnyData(d){
+        const jobTypes = (d.jobTypes || []).length;
+        return !!(
+          (d.time && d.time.trim()) ||
+          (d.invoice && d.invoice.trim()) ||
+          (d.customer && d.customer.trim()) ||
+          (d.payment && d.payment.trim()) ||
+          (d.amount && String(d.amount).trim()) ||
+          jobTypes ||
+          (d.vehicle && d.vehicle.trim()) ||
+          (d.rego && d.rego.trim()) ||
+          d.invoiced ||
+          d.emailed
+        );
+      }
+
+      function loadRow(dateStr, rowIndex) {
+        const raw = localStorage.getItem(`runsheet:${dateStr}:row:${rowIndex}`);
+        return raw ? JSON.parse(raw) : null;
+      }
+
+      function saveRow(dateStr, rowIndex, data) {
+        localStorage.setItem(`runsheet:${dateStr}:row:${rowIndex}`, JSON.stringify(data));
+        if (rowHasAnyData(data)) addDayToIndex(dateStr);
+      }
+
+      function clearDate(dateStr) {
+        for (let i=1; i<=JOB_COUNT; i++) {
+          localStorage.removeItem(`runsheet:${dateStr}:row:${i}`);
         }
       }
-      if (!hasData){
-        const idx = getDaysIndex().filter(d => d !== dateStr);
-        setDaysIndex(idx);
-        refreshSavedDaysDropdown();
-      }
-    }
 
-    // Default date = today
-    {
+      function makeSelect(options) {
+        const sel = document.createElement("select");
+        sel.className = "cell-select";
+        options.forEach(opt => {
+          const o = document.createElement("option");
+          o.value = opt;
+          o.textContent = opt;
+          sel.appendChild(o);
+        });
+        return sel;
+      }
+
+      function makeTextInput(placeholder="") {
+        const inp = document.createElement("input");
+        inp.type = "text";
+        inp.placeholder = placeholder;
+        return inp;
+      }
+
+      function makeAmountInput(){
+        const inp = document.createElement("input");
+        inp.type = "text";
+        inp.inputMode = "decimal";
+        inp.placeholder = "0.00";
+        inp.className = "amount";
+        return inp;
+      }
+
+      function makeTimeInput() {
+        const inp = document.createElement("input");
+        inp.type = "time";
+        return inp;
+      }
+
+      function makeCheckbox() {
+        const inp = document.createElement("input");
+        inp.type = "checkbox";
+        return inp;
+      }
+
+      function makeChips(options){
+        const wrap = document.createElement("div");
+        wrap.className = "chips";
+        const selected = new Set();
+
+        function setSelected(arr){
+          selected.clear();
+          (arr || []).forEach(v => selected.add(v));
+          wrap.querySelectorAll(".chip").forEach(btn => {
+            btn.classList.toggle("on", selected.has(btn.dataset.value));
+          });
+        }
+
+        function getSelected(){ return Array.from(selected); }
+
+        options.forEach(opt => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "chip";
+          btn.textContent = opt;
+          btn.dataset.value = opt;
+
+          btn.addEventListener("click", () => {
+            const v = btn.dataset.value;
+            if (selected.has(v)) selected.delete(v);
+            else selected.add(v);
+            btn.classList.toggle("on", selected.has(v));
+            wrap.dispatchEvent(new Event("change"));
+          });
+
+          wrap.appendChild(btn);
+        });
+
+        wrap._chips = { setSelected, getSelected };
+        return wrap;
+      }
+
+      function collectRowData(controls) {
+        return {
+          time: controls.time.value,
+          customer: controls.customer.value,
+          invoice: controls.invoice.value,
+          payment: controls.payment.value,
+          amount: controls.amount.value,
+          jobTypes: controls.jobTypes._chips.getSelected(),
+          vehicle: controls.vehicle.value,
+          rego: controls.rego.value,
+          invoiced: controls.invoiced.checked,
+          emailed: controls.emailed.checked
+        };
+      }
+
+      function applyRowData(controls, data) {
+        if (!data) return;
+        controls.time.value = data.time || "";
+        controls.customer.value = data.customer || "";
+        controls.invoice.value = data.invoice || "";
+        controls.payment.value = data.payment || "Account";
+        controls.amount.value = data.amount || "";
+        controls.jobTypes._chips.setSelected(data.jobTypes || []);
+        controls.vehicle.value = data.vehicle || vehicleTypeOptions[0];
+        controls.rego.value = data.rego || "";
+        controls.invoiced.checked = !!data.invoiced;
+        controls.emailed.checked = !!data.emailed;
+      }
+
+      function parseAmountToNumber(value){
+        if (value == null) return 0;
+        const s = String(value).trim();
+        if (!s) return 0;
+        const cleaned = s.replace(/[^0-9.\-]/g, "");
+        const n = Number(cleaned);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function money(n){
+        return n.toLocaleString(undefined, { style:"currency", currency:"AUD" });
+      }
+
+      function updateTotals(dateStr){
+        let jobs = 0;
+        let total = 0;
+        const byPay = { Account: 0, Cash: 0, Credit: 0, Other: 0 };
+
+        for (let i=1; i<=JOB_COUNT; i++){
+          const d = loadRow(dateStr, i);
+          if (!d) continue;
+
+          if (rowHasAnyData(d)) jobs++;
+
+          const amt = parseAmountToNumber(d.amount);
+          total += amt;
+
+          const pay = (d.payment || "").trim();
+          if (byPay.hasOwnProperty(pay)) byPay[pay] += amt;
+          else if (amt !== 0) byPay.Other += amt;
+        }
+
+        jobsCountEl.textContent = String(jobs);
+        totalAmountEl.textContent = money(total);
+        sumAccountEl.textContent = money(byPay.Account);
+        sumCashEl.textContent = money(byPay.Cash);
+        sumCreditEl.textContent = money(byPay.Credit);
+        sumOtherEl.textContent = money(byPay.Other);
+      }
+
+      function buildTableForDate(dateStr) {
+        bodyRows.innerHTML = "";
+
+        for (let i=1; i<=JOB_COUNT; i++) {
+          const tr = document.createElement("tr");
+
+          const tdNum = document.createElement("td");
+          tdNum.className = "rownum";
+          tdNum.textContent = i;
+          tr.appendChild(tdNum);
+
+          const controls = {
+            time: makeTimeInput(),
+            customer: makeTextInput("Customer name"),
+            invoice: makeTextInput("e.g. 12345"),
+            payment: makeSelect(paymentOptions),
+            amount: makeAmountInput(),
+            jobTypes: makeChips(jobTypeOptions),
+            vehicle: makeSelect(vehicleTypeOptions),
+            rego: makeTextInput("e.g. 123ABC"),
+            invoiced: makeCheckbox(),
+            emailed: makeCheckbox(),
+          };
+
+          controls.payment.value = "Account";
+          controls.vehicle.value = vehicleTypeOptions[0];
+
+          controls.rego.classList.add("rego");
+          controls.rego.addEventListener("input", () => {
+            controls.rego.value = controls.rego.value.toUpperCase();
+          });
+
+          const addCell = (el) => {
+            const td = document.createElement("td");
+            td.appendChild(el);
+            tr.appendChild(td);
+          };
+
+          addCell(controls.time);
+          addCell(controls.customer);
+          addCell(controls.invoice);
+          addCell(controls.payment);
+          addCell(controls.amount);
+          addCell(controls.jobTypes);
+          addCell(controls.vehicle);
+          addCell(controls.rego);
+
+          const tdInv = document.createElement("td");
+          tdInv.style.textAlign = "center";
+          const invWrap = document.createElement("div");
+          invWrap.className = "tick";
+          invWrap.appendChild(controls.invoiced);
+          tdInv.appendChild(invWrap);
+          tr.appendChild(tdInv);
+
+          const tdEmail = document.createElement("td");
+          tdEmail.style.textAlign = "center";
+          const emWrap = document.createElement("div");
+          emWrap.className = "tick";
+          emWrap.appendChild(controls.emailed);
+          tdEmail.appendChild(emWrap);
+          tr.appendChild(tdEmail);
+
+          const saved = loadRow(dateStr, i);
+          applyRowData(controls, saved);
+
+          const save = () => {
+            saveRow(dateStr, i, collectRowData(controls));
+            updateTotals(dateStr);
+          };
+
+          [controls.time, controls.customer, controls.invoice, controls.payment, controls.amount, controls.vehicle, controls.rego]
+            .forEach(ctrl => {
+              ctrl.addEventListener("change", save);
+              ctrl.addEventListener("input", save);
+            });
+
+          [controls.invoiced, controls.emailed].forEach(cb => cb.addEventListener("change", save));
+          controls.jobTypes.addEventListener("change", save);
+
+          bodyRows.appendChild(tr);
+        }
+
+        refreshSavedDaysDropdown(dateStr);
+        updateTotals(dateStr);
+      }
+
+      // ---- Export modal logic ----
+      function openExportModal(){
+        buildDayChecklist();
+        exportModal.style.display = "flex";
+      }
+
+      function closeExportModal(){
+        exportModal.style.display = "none";
+      }
+
+      function buildDayChecklist(){
+        const idx = getDaysIndex().slice().sort();
+        dayListEl.innerHTML = "";
+
+        const daysToShow = idx.length ? idx : [sheetDate.value];
+        daysToShow.forEach(day => {
+          const row = document.createElement("label");
+          row.className = "dayItem";
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.value = day;
+          if (day === sheetDate.value) cb.checked = true;
+
+          const text = document.createElement("div");
+          text.textContent = day;
+
+          row.appendChild(cb);
+          row.appendChild(text);
+          dayListEl.appendChild(row);
+        });
+      }
+
+      function setAllChecks(state){
+        dayListEl.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = state);
+      }
+
+      function selectCurrentOnly(){
+        const current = sheetDate.value;
+        dayListEl.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = (cb.value === current));
+      }
+
+      function getSelectedDaysFromModal(){
+        const selected = [];
+        dayListEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          if (cb.checked) selected.push(cb.value);
+        });
+        return Array.from(new Set(selected)).sort();
+      }
+
+      function exportExcelSelectedDays(selectedDays) {
+        if (typeof XLSX === "undefined") {
+          alert("Excel export library failed to load. Check internet connection.");
+          return;
+        }
+        if (!selectedDays || !selectedDays.length){
+          alert("Select at least one day to export.");
+          return;
+        }
+
+        const wb = XLSX.utils.book_new();
+
+        for (const day of selectedDays) {
+          const header = ["Row","Time","Customer","Invoice","Payment","Amount","Job Types","Vehicle","Rego","Invoiced","Emailed"];
+          const rows = [header];
+
+          let jobs = 0;
+          let total = 0;
+          const byPay = { Account: 0, Cash: 0, Credit: 0, Other: 0 };
+
+          for (let i = 1; i <= JOB_COUNT; i++) {
+            const data = loadRow(day, i) || {};
+            const jobTypes = (data.jobTypes || []).join(", ");
+
+            if (rowHasAnyData(data)) jobs++;
+
+            const amt = parseAmountToNumber(data.amount);
+            total += amt;
+
+            const pay = (data.payment || "").trim();
+            if (byPay.hasOwnProperty(pay)) byPay[pay] += amt;
+            else if (amt !== 0) byPay.Other += amt;
+
+            rows.push([
+              i,
+              data.time || "",
+              data.customer || "",
+              data.invoice || "",
+              data.payment || "",
+              amt || 0,
+              jobTypes,
+              data.vehicle || "",
+              (data.rego || "").toUpperCase(),
+              data.invoiced ? "YES" : "",
+              data.emailed ? "YES" : ""
+            ]);
+          }
+
+          rows.push([]);
+          rows.push(["Totals"]);
+          rows.push(["Jobs entered", jobs]);
+          rows.push(["Total amount", total]);
+          rows.push([]);
+          rows.push(["By payment type"]);
+          rows.push(["Account", byPay.Account]);
+          rows.push(["Cash", byPay.Cash]);
+          rows.push(["Credit", byPay.Credit]);
+          rows.push(["Other", byPay.Other]);
+
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+
+          ws["!cols"] = [
+            { wch:5 }, { wch:10 }, { wch:35 }, { wch:12 }, { wch:12 },
+            { wch:12 }, { wch:22 }, { wch:18 }, { wch:12 }, { wch:10 }, { wch:10 }
+          ];
+
+          for (let c = 0; c < header.length; c++) {
+            const addr = XLSX.utils.encode_cell({ r: 0, c });
+            if (ws[addr]) {
+              ws[addr].s = ws[addr].s || {};
+              ws[addr].s.font = { bold: true };
+            }
+          }
+
+          const amountCol = 5;
+          for (let r = 1; r <= JOB_COUNT; r++) {
+            const addr = XLSX.utils.encode_cell({ r, c: amountCol });
+            if (ws[addr]) ws[addr].z = '$#,##0.00';
+          }
+
+          const sheetName = String(day).slice(0, 31);
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        }
+
+        const fileName =
+          selectedDays.length > 1
+            ? `run-sheets-${selectedDays[0]}_to_${selectedDays[selectedDays.length - 1]}.xlsx`
+            : `run-sheet-${selectedDays[0]}.xlsx`;
+
+        XLSX.writeFile(wb, fileName);
+      }
+
+      // Initial render
+      refreshSavedDaysDropdown();
+
       const today = new Date();
       const yyyy = today.getFullYear();
       const mm = String(today.getMonth()+1).padStart(2,"0");
       const dd = String(today.getDate()).padStart(2,"0");
       sheetDate.value = `${yyyy}-${mm}-${dd}`;
-    }
 
-    function makeSelect(options) {
-      const sel = document.createElement("select");
-      sel.className = "cell-select";
-      options.forEach(opt => {
-        const o = document.createElement("option");
-        o.value = opt;
-        o.textContent = opt;
-        sel.appendChild(o);
-      });
-      return sel;
-    }
+      buildTableForDate(sheetDate.value);
 
-    function makeTextInput(placeholder="") {
-      const inp = document.createElement("input");
-      inp.type = "text";
-      inp.placeholder = placeholder;
-      return inp;
-    }
+      sheetDate.addEventListener("change", () => buildTableForDate(sheetDate.value));
 
-    function makeAmountInput(){
-      const inp = document.createElement("input");
-      inp.type = "text";
-      inp.inputMode = "decimal";
-      inp.placeholder = "0.00";
-      inp.className = "amount";
-      return inp;
-    }
-
-    function makeTimeInput() {
-      const inp = document.createElement("input");
-      inp.type = "time";
-      return inp;
-    }
-
-    function makeCheckbox() {
-      const inp = document.createElement("input");
-      inp.type = "checkbox";
-      return inp;
-    }
-
-    function makeChips(options){
-      const wrap = document.createElement("div");
-      wrap.className = "chips";
-      const selected = new Set();
-
-      function setSelected(arr){
-        selected.clear();
-        (arr || []).forEach(v => selected.add(v));
-        wrap.querySelectorAll(".chip").forEach(btn => {
-          btn.classList.toggle("on", selected.has(btn.dataset.value));
-        });
-      }
-
-      function getSelected(){ return Array.from(selected); }
-
-      options.forEach(opt => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "chip";
-        btn.textContent = opt;
-        btn.dataset.value = opt;
-
-        btn.addEventListener("click", () => {
-          const v = btn.dataset.value;
-          if (selected.has(v)) selected.delete(v);
-          else selected.add(v);
-          btn.classList.toggle("on", selected.has(v));
-          wrap.dispatchEvent(new Event("change"));
-        });
-
-        wrap.appendChild(btn);
+      goSavedBtn.addEventListener("click", () => {
+        if (!savedDays.value) return;
+        sheetDate.value = savedDays.value;
+        buildTableForDate(sheetDate.value);
       });
 
-      wrap._chips = { setSelected, getSelected };
-      return wrap;
-    }
+      document.getElementById("clearBtn").addEventListener("click", () => {
+        const d = sheetDate.value;
+        clearDate(d);
+        buildTableForDate(d);
+      });
 
-    function rowKey(dateStr, rowIndex) {
-      return `runsheet:${dateStr}:row:${rowIndex}`;
-    }
+      document.getElementById("exportBtn").addEventListener("click", openExportModal);
 
-    function saveRow(dateStr, rowIndex, data) {
-      localStorage.setItem(rowKey(dateStr, rowIndex), JSON.stringify(data));
-      if (rowHasAnyData(data)) addDayToIndex(dateStr);
-      else removeDayFromIndexIfEmpty(dateStr);
-    }
+      closeExportModalBtn.addEventListener("click", closeExportModal);
+      exportModal.addEventListener("click", (e) => { if (e.target === exportModal) closeExportModal(); });
 
-    function loadRow(dateStr, rowIndex) {
-      const raw = localStorage.getItem(rowKey(dateStr, rowIndex));
-      return raw ? JSON.parse(raw) : null;
-    }
+      selectAllDaysBtn.addEventListener("click", () => setAllChecks(true));
+      selectNoneDaysBtn.addEventListener("click", () => setAllChecks(false));
+      selectCurrentDayBtn.addEventListener("click", selectCurrentOnly);
 
-    function clearDate(dateStr) {
-      for (let i=1; i<=JOB_COUNT; i++) localStorage.removeItem(rowKey(dateStr, i));
-      removeDayFromIndexIfEmpty(dateStr);
-      updateTotals(dateStr);
-    }
-
-    function collectRowData(controls) {
-      return {
-        time: controls.time.value,
-        customer: controls.customer.value,
-        invoice: controls.invoice.value,
-        payment: controls.payment.value,
-        amount: controls.amount.value,
-        jobTypes: controls.jobTypes._chips.getSelected(),
-        vehicle: controls.vehicle.value,
-        rego: controls.rego.value,
-        invoiced: controls.invoiced.checked,
-        emailed: controls.emailed.checked
-      };
-    }
-
-    function applyRowData(controls, data) {
-      if (!data) return;
-      controls.time.value = data.time || "";
-      controls.customer.value = data.customer || "";
-      controls.invoice.value = data.invoice || "";
-      controls.payment.value = data.payment || "Account";
-      controls.amount.value = data.amount || "";
-      controls.jobTypes._chips.setSelected(data.jobTypes || []);
-      controls.vehicle.value = da
+      exportSelectedBtn.addEventListener("click", () => {
+        const days = getSelectedDaysFromModal();
+        if (!days.length) return alert("Select at least one day to export.");
+        closeExportModal();
+        exportExcelSelectedDays(days);
+      });
+    });
+  </script>
+</body>
+</html>
