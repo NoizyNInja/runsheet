@@ -1,7 +1,6 @@
 {
   "name": "Daily Run Sheet",
   "short_name": "Run Sheet",
-  "id": "/runsheet/"
   "id": "/runsheet/",
   "start_url": "/runsheet/",
   "scope": "/runsheet/",
@@ -24,4 +23,3 @@
     }
   ]
 }
-
