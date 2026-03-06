@@ -16,12 +16,23 @@
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
-      await navigator.serviceWorker.register("./sw.js?v=3", {
-  scope: "./",
-  updateViaCache: "none"
-});
-    } catch(e){
-      console.log("SW failed",e);
+      const reg = await navigator.serviceWorker.register("/runsheet/sw.js?v=3", {
+        scope: "/runsheet/",
+        updateViaCache: "none"
+      });
+
+      console.log("SW scope:", reg.scope);
+
+      const regs = await navigator.serviceWorker.getRegistrations();
+      console.log("SW registrations:", regs.map(r => ({
+        scope: r.scope,
+        active: r.active?.scriptURL || null,
+        activeState: r.active?.state || null
+      })));
+
+      console.log("SW controller:", !!navigator.serviceWorker.controller);
+    } catch (e) {
+      console.log("SW failed", e);
     }
   });
 }
@@ -221,22 +232,31 @@ document.getElementById("exportBtn").onclick=()=>{
 
 };
 
+<script>
 let deferredPrompt;
 
-window.addEventListener("beforeinstallprompt",e=>{
+window.addEventListener("beforeinstallprompt", e => {
   e.preventDefault();
-  deferredPrompt=e;
+  deferredPrompt = e;
 });
 
-document.getElementById("installBtn").onclick=async()=>{
-  if(!deferredPrompt){
-    alert("Install not available.\nUse browser menu → Add to Home Screen");
+document.getElementById("installBtn").onclick = async () => {
+  const regs = await navigator.serviceWorker.getRegistrations();
+
+  if (!deferredPrompt) {
+    alert(
+      "Install prompt not available.\n\n" +
+      "controller: " + (!!navigator.serviceWorker.controller) + "\n" +
+      "registrations: " + regs.length + "\n" +
+      "scopes: " + regs.map(r => r.scope).join(", ")
+    );
     return;
   }
+
   deferredPrompt.prompt();
   await deferredPrompt.userChoice;
 };
-
+</script>
 document.getElementById("resetSwBtn").onclick=async()=>{
 
   const regs=await navigator.serviceWorker.getRegistrations();
@@ -253,5 +273,4 @@ document.getElementById("resetSwBtn").onclick=async()=>{
 </script>
 
 </body>
-
 </html>
