@@ -1,5 +1,5 @@
 /* sw.js - offline cache */
-const CACHE_NAME = "runsheet-v5";
+const CACHE_NAME = "runsheet-v6";
 
 const ASSETS = [
   "./",
@@ -68,4 +68,5 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
 
