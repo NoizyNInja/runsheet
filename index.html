@@ -16,7 +16,10 @@
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
-      await navigator.serviceWorker.register("./sw.js?v=2",{updateViaCache:"none"});
+      await navigator.serviceWorker.register("./sw.js?v=3", {
+  scope: "./",
+  updateViaCache: "none"
+});
     } catch(e){
       console.log("SW failed",e);
     }
@@ -250,4 +253,5 @@ document.getElementById("resetSwBtn").onclick=async()=>{
 </script>
 
 </body>
+
 </html>
