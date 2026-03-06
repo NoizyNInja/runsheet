@@ -12,25 +12,43 @@
   <link rel="icon" href="./icons/icon-192.png">
 
   <script>
-    // Register SW and ensure the page becomes controlled (some Samsung tablets need 1 reload)
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", async () => {
-        try {
-          await navigator.serviceWorker.register("./sw.js");
-          await navigator.serviceWorker.ready;
+  if ("serviceWorker" in navigator) {
+    let reloadedForController = false;
 
-          if (!navigator.serviceWorker.controller) {
-            if (!sessionStorage.getItem("swReloadedOnce")) {
-              sessionStorage.setItem("swReloadedOnce", "1");
-              location.reload();
-            }
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!reloadedForController) {
+        reloadedForController = true;
+        location.reload();
+      }
+    });
+
+    window.addEventListener("load", async () => {
+      try {
+        const reg = await navigator.serviceWorker.register("/runsheet/sw.js", {
+          scope: "/runsheet/"
+        });
+
+        await navigator.serviceWorker.ready;
+
+        // If still not controlled, force one clean navigation inside scope
+        if (!navigator.serviceWorker.controller) {
+          const target = "/runsheet/";
+          if (location.pathname !== target) {
+            location.replace(target);
+            return;
           }
-        } catch (e) {
-          console.log("Service worker registration failed:", e);
+
+          if (!sessionStorage.getItem("runsheet-sw-reload")) {
+            sessionStorage.setItem("runsheet-sw-reload", "1");
+            location.reload();
+          }
         }
-      });
-    }
-  </script>
+      } catch (err) {
+        console.log("SW registration failed:", err);
+      }
+    });
+  }
+</script>
 
   <!-- Excel export library (SheetJS) -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
@@ -1011,4 +1029,5 @@
     });
   </script>
 </body>
+
 </html>
