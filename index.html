@@ -174,7 +174,6 @@
     }
 
     input.amount{ min-width:110px; }
-
     .rego{ text-transform: uppercase; }
 
     .tick{
@@ -374,9 +373,7 @@
     </div>
 
     <div class="actions">
-      <!-- Always visible (shows help if install not available yet) -->
       <button type="button" id="installBtn">Install</button>
-
       <button type="button" id="clearBtn">Clear This Day</button>
       <button type="button" id="exportBtn">Export Excel</button>
     </div>
@@ -457,9 +454,6 @@
 
   <script>
     // ---- Install button logic (Android/Chrome) ----
-    // Button always works:
-    // - If install is available, it will prompt.
-    // - If not, it shows a status popup so you can see what's missing.
     let deferredPrompt = null;
     const installBtn = document.getElementById("installBtn");
 
@@ -475,8 +469,7 @@
         "Already running as app: " + standalone + "\n" +
         "beforeinstallprompt captured: " + !!deferredPrompt + "\n\n" +
         "If controlling page is false, reload once more.\n" +
-        "If controlling page is true and prompt is still false, Chrome is refusing to offer install on this device.\n" +
-        "In that case, use ⋮ menu → Add to Home screen (it should still open as standalone)."
+        "If controlling page is true and prompt is still false, use ⋮ menu → Add to Home screen."
       );
     }
 
@@ -507,6 +500,17 @@
     const paymentOptions = ["Account", "Cash", "Credit", "Other"];
     const jobTypeOptions = ["DMF", "DMR", "DR", "FLY", "CLUTCH", "OTHER"];
 
+    // Vehicle Type LIST (dropdown)
+    const vehicleTypeOptions = [
+      "Car",
+      "SUV/4WD",
+      "Ute",
+      "Van",
+      "Truck",
+      "Trailer",
+      "Other"
+    ];
+
     const bodyRows = document.getElementById("bodyRows");
     const sheetDate = document.getElementById("sheetDate");
     const savedDays = document.getElementById("savedDays");
@@ -533,11 +537,8 @@
     const INDEX_KEY = "runsheet:daysIndex";
 
     function getDaysIndex(){
-      try {
-        return JSON.parse(localStorage.getItem(INDEX_KEY) || "[]");
-      } catch {
-        return [];
-      }
+      try { return JSON.parse(localStorage.getItem(INDEX_KEY) || "[]"); }
+      catch { return []; }
     }
 
     function setDaysIndex(list){
@@ -560,9 +561,7 @@
         savedDays.appendChild(opt);
       });
 
-      if (selectDateStr && idx.includes(selectDateStr)){
-        savedDays.value = selectDateStr;
-      }
+      if (selectDateStr && idx.includes(selectDateStr)) savedDays.value = selectDateStr;
     }
 
     function addDayToIndex(dateStr){
@@ -607,11 +606,13 @@
     }
 
     // Default date = today
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth()+1).padStart(2,"0");
-    const dd = String(today.getDate()).padStart(2,"0");
-    sheetDate.value = `${yyyy}-${mm}-${dd}`;
+    {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth()+1).padStart(2,"0");
+      const dd = String(today.getDate()).padStart(2,"0");
+      sheetDate.value = `${yyyy}-${mm}-${dd}`;
+    }
 
     function makeSelect(options) {
       const sel = document.createElement("select");
@@ -666,9 +667,7 @@
         });
       }
 
-      function getSelected(){
-        return Array.from(selected);
-      }
+      function getSelected(){ return Array.from(selected); }
 
       options.forEach(opt => {
         const btn = document.createElement("button");
@@ -708,9 +707,7 @@
     }
 
     function clearDate(dateStr) {
-      for (let i=1; i<=JOB_COUNT; i++) {
-        localStorage.removeItem(rowKey(dateStr, i));
-      }
+      for (let i=1; i<=JOB_COUNT; i++) localStorage.removeItem(rowKey(dateStr, i));
       removeDayFromIndexIfEmpty(dateStr);
       updateTotals(dateStr);
     }
@@ -734,4 +731,8 @@
       if (!data) return;
       controls.time.value = data.time || "";
       controls.customer.value = data.customer || "";
-      controls.invoice.value = data.invoice |
+      controls.invoice.value = data.invoice || "";
+      controls.payment.value = data.payment || "Account";
+      controls.amount.value = data.amount || "";
+      controls.jobTypes._chips.setSelected(data.jobTypes || []);
+      controls.vehicle.value = da
