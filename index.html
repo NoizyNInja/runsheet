@@ -12,314 +12,134 @@
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 16px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    button { padding: 10px 12px; }
+    .status {
+      margin: 12px 0;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      background: #fafafa;
+    }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px; }
+    th { background: #f4f4f4; }
+    input, select { width: 100%; }
+  </style>
+</head>
+<body>
+  <h2>Daily Run Sheet</h2>
+
+  <div class="actions">
+    <button id="installBtn" type="button">Install</button>
+    <button id="resetSwBtn" type="button">Reset SW</button>
+    <button id="exportBtn" type="button">Export Excel</button>
+  </div>
+
+  <div id="swStatus" class="status">Checking service worker...</div>
+
+  <table id="runsheet">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Time</th>
+        <th>Customer</th>
+        <th>Invoice</th>
+        <th>Payment</th>
+        <th>Amount</th>
+        <th>Job Type</th>
+        <th>Vehicle</th>
+        <th>Rego</th>
+        <th>Inv</th>
+        <th>Email</th>
+      </tr>
+    </thead>
+    <tbody id="bodyRows"></tbody>
+  </table>
+
+  <h3 id="totalAmount">$0.00</h3>
+
   <script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", async () => {
+    const swStatus = document.getElementById("swStatus");
+
+    async function showSwStatus(extra = "") {
+      const regs = ("serviceWorker" in navigator)
+        ? await navigator.serviceWorker.getRegistrations()
+        : [];
+      swStatus.textContent =
+        (extra ? extra + "\n\n" : "") +
+        "controller: " + (!!navigator.serviceWorker?.controller) + "\n" +
+        "registrations: " + regs.length + "\n" +
+        "scopes:\n" + (regs.map(r => r.scope).join("\n") || "(none)");
+    }
+
+    async function registerSw() {
+      if (!("serviceWorker" in navigator)) {
+        await showSwStatus("Service workers not supported.");
+        return;
+      }
+
       try {
         const reg = await navigator.serviceWorker.register("/runsheet/sw.js?v=12", {
           scope: "/runsheet/",
           updateViaCache: "none"
         });
-        console.log("SW registered:", reg.scope);
+
+        await showSwStatus("SW registered OK:\n" + reg.scope);
       } catch (e) {
-        console.log("SW failed:", e);
-        alert("SW failed: " + e.message);
+        await showSwStatus(
+          "SW REGISTER FAILED:\n" +
+          "name: " + (e?.name || "(none)") + "\n" +
+          "message: " + (e?.message || String(e))
+        );
       }
-    });
-  } else {
-    alert("Service workers not supported in this browser.");
-  }
-</script>
-
-  <style>
-    :root{
-      --border:#d7d7d7;
-      --bg:#ffffff;
-      --header:#f4f6f8;
-      --text:#111;
-      --panel:#fafafa;
     }
 
-    body{
-      margin:16px;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      color:var(--text);
-      background:var(--bg);
-    }
+    window.addEventListener("load", registerSw);
 
-    h1{
-      font-size:20px;
-      margin:0;
-    }
-
-    .topbar{
-      display:flex;
-      flex-wrap:wrap;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      margin-bottom:12px;
-    }
-
-    .actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    button{
-      font-size:16px;
-      padding:10px 12px;
-      border:1px solid var(--border);
-      border-radius:10px;
-      background:#fff;
-      cursor:pointer;
-    }
-
-    .table-wrap{
-      border:1px solid var(--border);
-      border-radius:12px;
-      overflow:hidden;
-      background:#fff;
-    }
-
-    .scroll{
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-    }
-
-    table{
-      border-collapse:separate;
-      border-spacing:0;
-      width:1320px;
-      min-width:100%;
-    }
-
-    thead th{
-      position:sticky;
-      top:0;
-      background:var(--header);
-      z-index:2;
-      font-size:14px;
-      text-align:left;
-      padding:10px;
-      border-bottom:1px solid var(--border);
-      white-space:nowrap;
-    }
-
-    tbody td{
-      border-bottom:1px solid var(--border);
-      padding:8px;
-      vertical-align:top;
-      background:#fff;
-    }
-
-    tbody tr:last-child td{
-      border-bottom:none;
-    }
-
-    .rownum{
-      width:52px;
-      text-align:center;
-      font-weight:600;
-      background:#fcfcfc;
-      position:sticky;
-      left:0;
-      z-index:1;
-    }
-
-    thead .rownum{
-      z-index:3;
-      background:var(--header);
-    }
-
-    input[type="text"],
-    input[type="time"],
-    input[type="number"],
-    select{
-      width:100%;
-      min-width:110px;
-      font-size:16px;
-      padding:10px;
-      border:1px solid var(--border);
-      border-radius:10px;
-      background:#fff;
-      box-sizing:border-box;
-    }
-
-    .rego{
-      text-transform:uppercase;
-    }
-
-    .tick{
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      height:100%;
-    }
-
-    input[type="checkbox"]{
-      width:22px;
-      height:22px;
-    }
-
-    .totals{
-      margin-top:12px;
-      border:1px solid var(--border);
-      border-radius:12px;
-      background:var(--panel);
-      padding:12px;
-      display:flex;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .totals .card{
-      background:#fff;
-      border:1px solid var(--border);
-      border-radius:12px;
-      padding:12px;
-      min-width:220px;
-      flex:1;
-    }
-
-    .totals .label{
-      font-size:12px;
-      color:#666;
-      margin-bottom:6px;
-    }
-
-    .totals .value{
-      font-size:22px;
-      font-weight:700;
-    }
-
-    .hint{
-      font-size:13px;
-      color:#555;
-      margin-top:10px;
-    }
-
-    @media (max-width: 480px){
-      body{ margin:12px; }
-      h1{ font-size:18px; }
-      .actions{ width:100%; }
-      button{ width:100%; }
-    }
-  </style>
-</head>
-<body>
-  <div class="topbar">
-    <h1>Daily Run Sheet</h1>
-
-    <div class="actions">
-      <button type="button" id="installBtn">Install</button>
-      <button type="button" id="resetSwBtn">Reset SW</button>
-      <button type="button" id="exportBtn">Export Excel</button>
-    </div>
-  </div>
-
-  <div class="table-wrap">
-    <div class="scroll">
-      <table id="runsheet">
-        <thead>
-          <tr>
-            <th class="rownum">#</th>
-            <th style="width:110px;">Time</th>
-            <th style="width:220px;">Customer</th>
-            <th style="width:130px;">Invoice</th>
-            <th style="width:140px;">Payment</th>
-            <th style="width:120px;">Amount</th>
-            <th style="width:160px;">Job Type</th>
-            <th style="width:160px;">Vehicle</th>
-            <th style="width:140px;">Rego</th>
-            <th style="width:90px; text-align:center;">Inv</th>
-            <th style="width:90px; text-align:center;">Email</th>
-          </tr>
-        </thead>
-        <tbody id="bodyRows"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="totals">
-    <div class="card">
-      <div class="label">Jobs entered</div>
-      <div class="value" id="jobsCount">0</div>
-    </div>
-
-    <div class="card">
-      <div class="label">Total amount</div>
-      <div class="value" id="totalAmount">$0.00</div>
-    </div>
-  </div>
-
-  <div class="hint">
-    If Install is unavailable, tap it anyway and it will show service worker status.
-  </div>
-
-  <script>
     const JOB_COUNT = 20;
     const paymentOptions = ["Account", "Cash", "Credit", "Other"];
     const jobOptions = ["DMF", "DMR", "DR", "FLY", "CLUTCH", "OTHER"];
-    const vehicleOptions = ["Car", "SUV/4WD", "Ute", "Van", "Truck", "Trailer", "Other"];
-
+    const vehicleOptions = ["Car", "SUV", "Ute", "Van", "Truck", "Other"];
     const bodyRows = document.getElementById("bodyRows");
-    const jobsCountEl = document.getElementById("jobsCount");
-    const totalAmountEl = document.getElementById("totalAmount");
 
     function makeInput(type) {
-      const el = document.createElement("input");
-      el.type = type;
-      return el;
+      const i = document.createElement("input");
+      i.type = type;
+      return i;
     }
 
-    function makeSelect(options) {
-      const el = document.createElement("select");
-      options.forEach((opt) => {
+    function makeSelect(list) {
+      const s = document.createElement("select");
+      list.forEach(v => {
         const o = document.createElement("option");
-        o.value = opt;
-        o.textContent = opt;
-        el.appendChild(o);
+        o.value = v;
+        o.textContent = v;
+        s.appendChild(o);
       });
-      return el;
+      return s;
     }
 
-    function money(n) {
-      return n.toLocaleString(undefined, {
-        style: "currency",
-        currency: "AUD"
-      });
-    }
-
-    function updateTotals() {
-      let jobs = 0;
+    function updateTotal() {
       let total = 0;
-
-      document.querySelectorAll("#runsheet tbody tr").forEach((tr) => {
-        const inputs = tr.querySelectorAll("input, select");
-        const amount = parseFloat(inputs[4].value);
-        const hasData = Array.from(inputs).some((el) => {
-          if (el.type === "checkbox") return el.checked;
-          return String(el.value || "").trim() !== "";
-        });
-
-        if (hasData) jobs++;
-        if (!Number.isNaN(amount)) total += amount;
+      document.querySelectorAll(".amount").forEach(i => {
+        const v = parseFloat(i.value);
+        if (!isNaN(v)) total += v;
       });
-
-      jobsCountEl.textContent = String(jobs);
-      totalAmountEl.textContent = money(total);
+      document.getElementById("totalAmount").textContent =
+        total.toLocaleString(undefined, { style: "currency", currency: "AUD" });
     }
 
     function buildRows() {
       bodyRows.innerHTML = "";
-
       for (let i = 1; i <= JOB_COUNT; i++) {
         const tr = document.createElement("tr");
 
         const tdNum = document.createElement("td");
-        tdNum.className = "rownum";
         tdNum.textContent = i;
         tr.appendChild(tdNum);
 
@@ -329,71 +149,43 @@
         const payment = makeSelect(paymentOptions);
 
         const amount = makeInput("number");
-        amount.step = "0.01";
         amount.classList.add("amount");
+        amount.addEventListener("input", updateTotal);
 
         const job = makeSelect(jobOptions);
         const vehicle = makeSelect(vehicleOptions);
-
         const rego = makeInput("text");
-        rego.classList.add("rego");
-        rego.addEventListener("input", () => {
-          rego.value = rego.value.toUpperCase();
-        });
-
         const invoiced = makeInput("checkbox");
         const emailed = makeInput("checkbox");
 
-        [time, customer, invoice, payment, amount, job, vehicle, rego].forEach((el) => {
+        [time, customer, invoice, payment, amount, job, vehicle, rego].forEach(el => {
           const td = document.createElement("td");
           td.appendChild(el);
           tr.appendChild(td);
-
-          if (el.tagName === "INPUT" || el.tagName === "SELECT") {
-            el.addEventListener("input", updateTotals);
-            el.addEventListener("change", updateTotals);
-          }
         });
 
         const tdInv = document.createElement("td");
-        tdInv.style.textAlign = "center";
-        const invWrap = document.createElement("div");
-        invWrap.className = "tick";
-        invWrap.appendChild(invoiced);
-        tdInv.appendChild(invWrap);
+        tdInv.appendChild(invoiced);
         tr.appendChild(tdInv);
 
         const tdEmail = document.createElement("td");
-        tdEmail.style.textAlign = "center";
-        const emailWrap = document.createElement("div");
-        emailWrap.className = "tick";
-        emailWrap.appendChild(emailed);
-        tdEmail.appendChild(emailWrap);
+        tdEmail.appendChild(emailed);
         tr.appendChild(tdEmail);
-
-        invoiced.addEventListener("change", updateTotals);
-        emailed.addEventListener("change", updateTotals);
 
         bodyRows.appendChild(tr);
       }
-
-      updateTotals();
     }
 
     buildRows();
 
-    document.getElementById("exportBtn").addEventListener("click", () => {
-      if (typeof XLSX === "undefined") {
-        alert("Excel library not loaded.");
-        return;
-      }
-
+    document.getElementById("exportBtn").onclick = () => {
       const rows = [[
-        "Row","Time","Customer","Invoice","Payment","Amount","Job Type","Vehicle","Rego","Inv","Email"
+        "Row","Time","Customer","Invoice","Payment","Amount","Job","Vehicle","Rego","Inv","Email"
       ]];
 
-      document.querySelectorAll("#runsheet tbody tr").forEach((tr, i) => {
-        const cells = tr.querySelectorAll("input, select");
+      const trs = document.querySelectorAll("#runsheet tbody tr");
+      trs.forEach((tr, i) => {
+        const cells = tr.querySelectorAll("input,select");
         rows.push([
           i + 1,
           cells[0].value,
@@ -413,46 +205,36 @@
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Run Sheet");
       XLSX.writeFile(wb, "runsheet.xlsx");
-    });
+    };
 
     let deferredPrompt = null;
 
-    window.addEventListener("beforeinstallprompt", (e) => {
+    window.addEventListener("beforeinstallprompt", e => {
       e.preventDefault();
       deferredPrompt = e;
-      console.log("Install prompt ready");
     });
 
-    document.getElementById("installBtn").addEventListener("click", async () => {
+    document.getElementById("installBtn").onclick = async () => {
       if (!deferredPrompt) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        alert(
-          "Install prompt not available.\n\n" +
-          "Controller: " + !!navigator.serviceWorker.controller + "\n" +
-          "Registrations: " + regs.length + "\n" +
-          "Scopes:\n" + regs.map(r => r.scope).join("\n")
-        );
+        await showSwStatus("Install prompt not available.");
         return;
       }
-
       deferredPrompt.prompt();
       await deferredPrompt.userChoice;
-    });
+    };
 
-    document.getElementById("resetSwBtn").addEventListener("click", async () => {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const r of regs) {
-        await r.unregister();
+    document.getElementById("resetSwBtn").onclick = async () => {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) await r.unregister();
       }
 
       const keys = await caches.keys();
-      for (const k of keys) {
-        await caches.delete(k);
-      }
+      for (const k of keys) await caches.delete(k);
 
       alert("Service Worker Reset");
       location.reload();
-    });
+    };
   </script>
 </body>
 </html>
