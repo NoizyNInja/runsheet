@@ -420,49 +420,6 @@
     </div>
   </div>
 
-  // ---- SW diagnostics + hard reset ----
-const resetSwBtn = document.getElementById("resetSwBtn");
-
-async function swStatus() {
-  const regs = await navigator.serviceWorker.getRegistrations();
-  const info = regs.map(r => ({
-    scope: r.scope,
-    active: r.active?.scriptURL || null,
-    activeState: r.active?.state || null,
-    waiting: r.waiting?.scriptURL || null,
-    installing: r.installing?.scriptURL || null,
-  }));
-  alert(
-    "controller: " + (!!navigator.serviceWorker.controller) + "\n" +
-    "registrations: " + regs.length + "\n\n" +
-    JSON.stringify(info, null, 2)
-  );
-}
-
-resetSwBtn.addEventListener("click", async () => {
-  if (!confirm("Reset service worker + cache for this site?")) return;
-
-  try {
-    // Unregister all SWs for this origin
-    const regs = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(regs.map(r => r.unregister()));
-
-    // Clear all caches for this origin
-    const keys = await caches.keys();
-    await Promise.all(keys.map(k => caches.delete(k)));
-
-    // Clear our “reload once” flags if you use them
-    sessionStorage.clear();
-
-    alert("Reset complete. Reloading…");
-    location.reload(true);
-  } catch (e) {
-    alert("Reset failed: " + e);
-  }
-});
-
-// Optional: tap this from the tablet to see exactly what's going on
-// swStatus();
 
   <div class="totals" id="totalsPanel">
     <div class="card">
@@ -519,6 +476,47 @@ resetSwBtn.addEventListener("click", async () => {
       // ---- Install button logic (Android/Chrome) ----
       let deferredPrompt = null;
       const installBtn = document.getElementById("installBtn");
+
+      // ---- SW diagnostics + hard reset ----
+const resetSwBtn = document.getElementById("resetSwBtn");
+
+async function swStatus() {
+  const regs = await navigator.serviceWorker.getRegistrations();
+  const info = regs.map(r => ({
+    scope: r.scope,
+    active: r.active?.scriptURL || null,
+    activeState: r.active?.state || null,
+    waiting: r.waiting?.scriptURL || null,
+    installing: r.installing?.scriptURL || null,
+  }));
+  alert(
+    "controller: " + (!!navigator.serviceWorker.controller) + "\n" +
+    "registrations: " + regs.length + "\n\n" +
+    JSON.stringify(info, null, 2)
+  );
+}
+
+resetSwBtn.addEventListener("click", async () => {
+  if (!confirm("Reset service worker + cache for this site?")) return;
+
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(r => r.unregister()));
+
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+
+    sessionStorage.clear();
+
+    alert("Reset complete. Reloading…");
+    location.reload();
+  } catch (e) {
+    alert("Reset failed: " + e);
+  }
+});
+
+// Uncomment this if you want it to show automatically on load
+// swStatus();
 
       function showInstallStatus() {
         const controlled = !!navigator.serviceWorker.controller;
@@ -1076,4 +1074,5 @@ resetSwBtn.addEventListener("click", async () => {
 </body>
 
 </html>
+
 
