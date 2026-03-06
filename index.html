@@ -13,19 +13,23 @@
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
   <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", async () => {
-        try {
-          await navigator.serviceWorker.register("./sw.js?v=10", {
-            scope: "./",
-            updateViaCache: "none"
-          });
-        } catch (e) {
-          console.log("SW failed:", e);
-        }
-      });
-    }
-  </script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", async () => {
+      try {
+        const reg = await navigator.serviceWorker.register("/runsheet/sw.js?v=12", {
+          scope: "/runsheet/",
+          updateViaCache: "none"
+        });
+        console.log("SW registered:", reg.scope);
+      } catch (e) {
+        console.log("SW failed:", e);
+        alert("SW failed: " + e.message);
+      }
+    });
+  } else {
+    alert("Service workers not supported in this browser.");
+  }
+</script>
 
   <style>
     :root{
