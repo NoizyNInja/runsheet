@@ -17,30 +17,37 @@
 let deferredPrompt = null;
 const installBtn = document.getElementById("installBtn");
 
-function installHelpMessage() {
+function showInstallStatus() {
+  const controlled = !!navigator.serviceWorker.controller;
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+
   alert(
-    "Install isn't available yet on this device.\n\n" +
-    "Try this:\n" +
-    "1) Refresh the page once\n" +
-    "2) Tap ⋮ menu → Install app\n\n" +
-    "If you still only see 'Add to Home screen', Chrome hasn't marked it installable yet.\n" +
-    "The page usually needs to be controlled by the service worker (the app may reload once automatically)."
+    "Install prompt not available.\n\n" +
+    "Service worker controlling page: " + controlled + "\n" +
+    "Already running as app: " + standalone + "\n" +
+    "beforeinstallprompt captured: " + !!deferredPrompt + "\n\n" +
+    "If controlling page is false, reload once more.\n" +
+    "If controlling page is true and prompt is still false, Chrome on this tablet is refusing to offer install."
   );
 }
 
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  installBtn.textContent = "Install";
+  installBtn.textContent = "Install now";
 });
 
 installBtn.addEventListener("click", async () => {
   if (!deferredPrompt) {
-    installHelpMessage();
+    showInstallStatus();
     return;
   }
+
   deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
+  const choice = await deferredPrompt.userChoice;
+  console.log("Install choice:", choice);
   deferredPrompt = null;
   installBtn.textContent = "Installed";
 });
@@ -1119,5 +1126,6 @@ window.addEventListener("appinstalled", () => {
   </script>
 </body>
 </html>
+
 
 
