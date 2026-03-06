@@ -24,9 +24,10 @@
 
     window.addEventListener("load", async () => {
       try {
-        const reg = await navigator.serviceWorker.register("/runsheet/sw.js", {
-          scope: "/runsheet/"
-        });
+        const reg = await navigator.serviceWorker.register("/runsheet/sw.js?v=1", {
+        scope: "/runsheet/",
+        updateViaCache: "none"
+       });
 
         await navigator.serviceWorker.ready;
 
@@ -1074,5 +1075,6 @@ resetSwBtn.addEventListener("click", async () => {
 </body>
 
 </html>
+
 
 
