@@ -78,26 +78,24 @@
     }
 
     async function registerSw() {
-      if (!("serviceWorker" in navigator)) {
-        await showSwStatus("Service workers not supported.");
-        return;
-      }
+     if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("/runsheet/sw.js?v=13", {
+        scope: "/runsheet/",
+        updateViaCache: "none"
+      });
 
-      try {
-        const reg = await navigator.serviceWorker.register("/runsheet/sw.js?v=16", {
-          scope: "/runsheet/",
-          updateViaCache: "none"
-        });
+      await navigator.serviceWorker.ready;
 
-        await showSwStatus("SW registered OK:\n" + reg.scope);
-      } catch (e) {
-        await showSwStatus(
-          "SW REGISTER FAILED:\n" +
-          "name: " + (e?.name || "(none)") + "\n" +
-          "message: " + (e?.message || String(e))
-        );
-      }
+      console.log("SW registered:", reg.scope);
+      console.log("SW controller:", !!navigator.serviceWorker.controller);
+    } catch (e) {
+      console.log("SW failed:", e);
+      alert("SW failed: " + (e.message || e));
     }
+  });
+}
 
     window.addEventListener("load", registerSw);
 
@@ -239,3 +237,4 @@
 </body>
 
 </html>
+
