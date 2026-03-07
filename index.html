@@ -16,7 +16,7 @@
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", async () => {
         try {
-          await navigator.serviceWorker.register("/runsheet/sw.js?v=25", {
+          await navigator.serviceWorker.register("/runsheet/sw.js?v=26", {
             scope: "/runsheet/",
             updateViaCache: "none"
           });
@@ -1170,6 +1170,7 @@
   </script>
 </body>
 </html>
+
 
 
 
