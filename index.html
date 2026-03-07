@@ -12,229 +12,1103 @@
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 16px; }
-    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-    button { padding: 10px 12px; }
-    .status {
-      margin: 12px 0;
-      padding: 12px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      white-space: pre-wrap;
-      font-family: monospace;
-      background: #fafafa;
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", async () => {
+        try {
+          await navigator.serviceWorker.register("/runsheet/sw.js?v=20", {
+            scope: "/runsheet/",
+            updateViaCache: "none"
+          });
+        } catch (e) {
+          console.log("SW failed:", e);
+        }
+      });
     }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ccc; padding: 6px; }
-    th { background: #f4f4f4; }
-    input, select { width: 100%; box-sizing: border-box; }
+  </script>
+
+  <style>
+    :root{
+      --border:#d7d7d7;
+      --bg:#ffffff;
+      --header:#f4f6f8;
+      --text:#111;
+      --panel:#fafafa;
+      --chip:#f7f7f7;
+      --chipOn:#e8f0ff;
+      --overlay:rgba(0,0,0,0.35);
+    }
+
+    body{
+      margin:16px;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:var(--bg);
+    }
+
+    .topbar{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+
+    h1{
+      font-size:20px;
+      margin:0;
+    }
+
+    .meta{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .meta label{
+      font-size:14px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      background:#fafafa;
+      border:1px solid var(--border);
+      padding:8px 10px;
+      border-radius:10px;
+    }
+
+    input[type="date"], select{
+      font-size:16px;
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:#fff;
+    }
+
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    button{
+      font-size:16px;
+      padding:10px 12px;
+      border:1px solid var(--border);
+      background:#fff;
+      border-radius:10px;
+      cursor:pointer;
+    }
+
+    button:active{
+      transform:translateY(1px);
+    }
+
+    .table-wrap{
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      background:#fff;
+    }
+
+    .scroll{
+      overflow:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    table{
+      border-collapse:separate;
+      border-spacing:0;
+      width:1460px;
+      min-width:100%;
+    }
+
+    thead th{
+      position:sticky;
+      top:0;
+      background:var(--header);
+      z-index:2;
+      font-size:14px;
+      text-align:left;
+      padding:10px;
+      border-bottom:1px solid var(--border);
+      white-space:nowrap;
+    }
+
+    tbody td{
+      border-bottom:1px solid var(--border);
+      padding:8px;
+      vertical-align:top;
+      background:#fff;
+    }
+
+    tbody tr:last-child td{
+      border-bottom:none;
+    }
+
+    .rownum{
+      width:52px;
+      text-align:center;
+      color:#444;
+      font-weight:600;
+      background:#fcfcfc;
+      position:sticky;
+      left:0;
+      z-index:1;
+    }
+
+    thead .rownum{
+      z-index:3;
+      background:var(--header);
+    }
+
+    input[type="text"],
+    input[type="time"],
+    .cell-select{
+      width:100%;
+      min-width:110px;
+      font-size:16px;
+      padding:10px 10px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:#fff;
+      box-sizing:border-box;
+    }
+
+    .invoice-field{
+      min-width:90px;
+    }
+
+    .amount-field{
+      min-width:110px;
+      text-align:right;
+    }
+
+    .vehicle-field{
+      min-width:170px;
+    }
+
+    .rego-field{
+      min-width:80px;
+      max-width:100px;
+      text-transform:uppercase;
+    }
+
+    .tick{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100%;
+    }
+
+    input[type="checkbox"]{
+      width:22px;
+      height:22px;
+    }
+
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      min-width:280px;
+    }
+
+    .chip{
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+      border:1px solid var(--border);
+      background:var(--chip);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:14px;
+      line-height:1;
+      cursor:pointer;
+      min-height:36px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      white-space:nowrap;
+    }
+
+    .chip.on{
+      background:var(--chipOn);
+      border-color:#9bb6ff;
+      font-weight:600;
+    }
+
+    .hint{
+      font-size:13px;
+      color:#555;
+      margin:10px 2px 0;
+    }
+
+    .totals{
+      margin-top:12px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:var(--panel);
+      padding:12px;
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:12px;
+    }
+
+    .totals .card{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px;
+    }
+
+    .totals .label{
+      font-size:12px;
+      color:#666;
+      margin-bottom:6px;
+    }
+
+    .totals .value{
+      font-size:22px;
+      font-weight:700;
+    }
+
+    .modalOverlay{
+      position:fixed;
+      inset:0;
+      background:var(--overlay);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index:9999;
+    }
+
+    .modal{
+      width:min(520px,100%);
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:16px;
+      box-shadow:0 10px 30px rgba(0,0,0,0.2);
+      overflow:hidden;
+    }
+
+    .modalHeader{
+      padding:14px 14px 10px;
+      background:var(--header);
+      border-bottom:1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .modalHeader h2{
+      font-size:16px;
+      margin:0;
+    }
+
+    .modalBody{
+      padding:14px;
+    }
+
+    .modalActions{
+      padding:12px 14px;
+      border-top:1px solid var(--border);
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      background:#fff;
+    }
+
+    .dayList{
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      max-height:320px;
+      overflow:auto;
+    }
+
+    .dayItem{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-bottom:1px solid var(--border);
+      background:#fff;
+      font-size:15px;
+    }
+
+    .dayItem:last-child{
+      border-bottom:none;
+    }
+
+    .dayItem input[type="checkbox"]{
+      width:20px;
+      height:20px;
+    }
+
+    .miniActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+
+    .miniActions button{
+      font-size:14px;
+      padding:8px 10px;
+      border-radius:10px;
+    }
+
+    @media (max-width: 480px){
+      body{ margin:12px; }
+      h1{ font-size:18px; }
+      button{ width:100%; }
+      .actions{ width:100%; }
+      .modalActions button{ width:100%; }
+    }
   </style>
 </head>
 <body>
-  <h2>Daily Run Sheet</h2>
+  <div class="topbar">
+    <h1>Daily Run Sheet</h1>
 
-  <div class="actions">
-    <button id="installBtn" type="button">Install</button>
-    <button id="resetSwBtn" type="button">Reset SW</button>
-    <button id="exportBtn" type="button">Export Excel</button>
+    <div class="meta">
+      <label>
+        Date
+        <input type="date" id="sheetDate">
+      </label>
+
+      <label>
+        Saved Days
+        <select id="savedDays" class="cell-select" style="min-width:180px;">
+          <option value="">(none)</option>
+        </select>
+      </label>
+
+      <button type="button" id="goSavedBtn">Go</button>
+    </div>
+
+    <div class="actions">
+      <button type="button" id="installBtn">Install</button>
+      <button type="button" id="resetSwBtn">Reset SW</button>
+      <button type="button" id="clearBtn">Clear This Day</button>
+      <button type="button" id="exportBtn">Export Excel</button>
+    </div>
   </div>
 
-  <div id="swStatus" class="status">Checking service worker...</div>
+  <div class="table-wrap">
+    <div class="scroll">
+      <table id="runsheet">
+        <thead>
+          <tr>
+            <th class="rownum">#</th>
+            <th style="width:110px;">Time</th>
+            <th style="width:220px;">Customer</th>
+            <th style="width:90px;">Invoice #</th>
+            <th style="width:140px;">Payment</th>
+            <th style="width:120px;">Amount</th>
+            <th style="width:280px;">Job Type</th>
+            <th style="width:180px;">Vehicle</th>
+            <th style="width:90px;">Rego</th>
+            <th style="width:90px; text-align:center;">Invoiced</th>
+            <th style="width:90px; text-align:center;">Emailed</th>
+          </tr>
+        </thead>
+        <tbody id="bodyRows"></tbody>
+      </table>
+    </div>
+  </div>
 
-  <table id="runsheet">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Time</th>
-        <th>Customer</th>
-        <th>Invoice</th>
-        <th>Payment</th>
-        <th>Amount</th>
-        <th>Job Type</th>
-        <th>Vehicle</th>
-        <th>Rego</th>
-        <th>Inv</th>
-        <th>Email</th>
-      </tr>
-    </thead>
-    <tbody id="bodyRows"></tbody>
-  </table>
+  <div class="totals">
+    <div class="card">
+      <div class="label">Jobs entered</div>
+      <div class="value" id="jobsCount">0</div>
+    </div>
 
-  <h3 id="totalAmount">$0.00</h3>
+    <div class="card">
+      <div class="label">Account total</div>
+      <div class="value" id="sumAccount">$0.00</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Cash total</div>
+      <div class="value" id="sumCash">$0.00</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Credit total</div>
+      <div class="value" id="sumCredit">$0.00</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Other total</div>
+      <div class="value" id="sumOther">$0.00</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Daily total</div>
+      <div class="value" id="totalAmount">$0.00</div>
+    </div>
+  </div>
+
+  <div class="hint">
+    Rows save automatically to the selected date. Export can include one or multiple saved dates.
+  </div>
+
+  <div class="modalOverlay" id="exportModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+      <div class="modalHeader">
+        <h2 id="exportTitle">Export to Excel</h2>
+        <button type="button" id="closeExportModal">Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="miniActions">
+          <button type="button" id="selectAllDaysBtn">Select all</button>
+          <button type="button" id="selectNoneDaysBtn">Select none</button>
+          <button type="button" id="selectCurrentDayBtn">Select current day</button>
+        </div>
+        <div class="dayList" id="dayList"></div>
+        <div class="hint" style="margin-top:10px;">
+          Each selected date will export to its own sheet. Sheet name = date.
+        </div>
+      </div>
+      <div class="modalActions">
+        <button type="button" id="exportSelectedBtn">Export selected</button>
+      </div>
+    </div>
+  </div>
 
   <script>
-    const swStatus = document.getElementById("swStatus");
-    const installBtn = document.getElementById("installBtn");
-    const resetSwBtn = document.getElementById("resetSwBtn");
-    const exportBtn = document.getElementById("exportBtn");
-    const bodyRows = document.getElementById("bodyRows");
-
-    async function showSwStatus(extra = "") {
-      let regs = [];
-      let controller = false;
-
-      if ("serviceWorker" in navigator) {
-        regs = await navigator.serviceWorker.getRegistrations();
-        controller = !!navigator.serviceWorker.controller;
-      }
-
-      swStatus.textContent =
-        (extra ? extra + "\n\n" : "") +
-        "controller: " + controller + "\n" +
-        "registrations: " + regs.length + "\n" +
-        "scopes:\n" + (regs.map(r => r.scope).join("\n") || "(none)");
-    }
-
-    async function registerSw() {
-      if (!("serviceWorker" in navigator)) {
-        await showSwStatus("Service workers not supported.");
-        return;
-      }
-
-      try {
-        const reg = await navigator.serviceWorker.register("/runsheet/sw.js?v=13", {
-          scope: "/runsheet/",
-          updateViaCache: "none"
-        });
-
-        await navigator.serviceWorker.ready;
-        await showSwStatus("SW registered OK:\n" + reg.scope);
-      } catch (e) {
-        await showSwStatus(
-          "SW REGISTER FAILED:\n" +
-          "name: " + (e?.name || "(none)") + "\n" +
-          "message: " + (e?.message || String(e))
-        );
-      }
-    }
-
-    window.addEventListener("load", registerSw);
-
     const JOB_COUNT = 20;
     const paymentOptions = ["Account", "Cash", "Credit", "Other"];
-    const jobOptions = ["DMF", "DMR", "DR", "FLY", "CLUTCH", "OTHER"];
-    const vehicleOptions = ["Car", "SUV", "Ute", "Van", "Truck", "Other"];
+    const jobTypeOptions = ["DMF", "DMR", "DR", "FLY", "CLUTCH", "OTHER"];
 
-    function makeInput(type) {
-      const i = document.createElement("input");
-      i.type = type;
-      return i;
+    const bodyRows = document.getElementById("bodyRows");
+    const sheetDate = document.getElementById("sheetDate");
+    const savedDays = document.getElementById("savedDays");
+    const goSavedBtn = document.getElementById("goSavedBtn");
+
+    const jobsCountEl = document.getElementById("jobsCount");
+    const totalAmountEl = document.getElementById("totalAmount");
+    const sumAccountEl = document.getElementById("sumAccount");
+    const sumCashEl = document.getElementById("sumCash");
+    const sumCreditEl = document.getElementById("sumCredit");
+    const sumOtherEl = document.getElementById("sumOther");
+
+    const exportModal = document.getElementById("exportModal");
+    const closeExportModalBtn = document.getElementById("closeExportModal");
+    const dayListEl = document.getElementById("dayList");
+    const selectAllDaysBtn = document.getElementById("selectAllDaysBtn");
+    const selectNoneDaysBtn = document.getElementById("selectNoneDaysBtn");
+    const selectCurrentDayBtn = document.getElementById("selectCurrentDayBtn");
+    const exportSelectedBtn = document.getElementById("exportSelectedBtn");
+
+    const INDEX_KEY = "runsheet:daysIndex";
+
+    function getTodayDateStr() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
     }
 
-    function makeSelect(list) {
-      const s = document.createElement("select");
-      list.forEach(v => {
+    function rowKey(dateStr, rowIndex) {
+      return `runsheet:${dateStr}:row:${rowIndex}`;
+    }
+
+    function getDaysIndex() {
+      try {
+        return JSON.parse(localStorage.getItem(INDEX_KEY) || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function setDaysIndex(list) {
+      const unique = Array.from(new Set(list)).sort((a, b) => b.localeCompare(a));
+      localStorage.setItem(INDEX_KEY, JSON.stringify(unique));
+    }
+
+    function refreshSavedDaysDropdown(selectDateStr = "") {
+      const idx = getDaysIndex();
+      savedDays.innerHTML = "";
+
+      const none = document.createElement("option");
+      none.value = "";
+      none.textContent = idx.length ? "(choose)" : "(none)";
+      savedDays.appendChild(none);
+
+      idx.forEach((d) => {
+        const opt = document.createElement("option");
+        opt.value = d;
+        opt.textContent = d;
+        savedDays.appendChild(opt);
+      });
+
+      if (selectDateStr && idx.includes(selectDateStr)) {
+        savedDays.value = selectDateStr;
+      }
+    }
+
+    function addDayToIndex(dateStr) {
+      const idx = getDaysIndex();
+      if (!idx.includes(dateStr)) {
+        idx.push(dateStr);
+        setDaysIndex(idx);
+      }
+      refreshSavedDaysDropdown(dateStr);
+    }
+
+    function removeDayFromIndexIfEmpty(dateStr) {
+      let hasData = false;
+      for (let i = 1; i <= JOB_COUNT; i++) {
+        const data = loadRow(dateStr, i);
+        if (data && rowHasAnyData(data)) {
+          hasData = true;
+          break;
+        }
+      }
+      if (!hasData) {
+        const idx = getDaysIndex().filter((d) => d !== dateStr);
+        setDaysIndex(idx);
+        refreshSavedDaysDropdown();
+      }
+    }
+
+    function parseAmount(value) {
+      if (value == null) return 0;
+      const cleaned = String(value).replace(/[^0-9.-]/g, "").trim();
+      if (!cleaned) return 0;
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function formatCurrency(value) {
+      const n = parseAmount(value);
+      return n.toLocaleString(undefined, {
+        style: "currency",
+        currency: "AUD"
+      });
+    }
+
+    function money(n) {
+      return n.toLocaleString(undefined, {
+        style: "currency",
+        currency: "AUD"
+      });
+    }
+
+    function makeSelect(options) {
+      const sel = document.createElement("select");
+      sel.className = "cell-select";
+      options.forEach((opt) => {
         const o = document.createElement("option");
-        o.value = v;
-        o.textContent = v;
-        s.appendChild(o);
+        o.value = opt;
+        o.textContent = opt;
+        sel.appendChild(o);
       });
-      return s;
+      return sel;
     }
 
-    function updateTotal() {
+    function makeTextInput(placeholder = "", className = "") {
+      const inp = document.createElement("input");
+      inp.type = "text";
+      inp.placeholder = placeholder;
+      if (className) inp.className = className;
+      return inp;
+    }
+
+    function makeTimeInput() {
+      const inp = document.createElement("input");
+      inp.type = "time";
+      return inp;
+    }
+
+    function makeCheckbox() {
+      const inp = document.createElement("input");
+      inp.type = "checkbox";
+      return inp;
+    }
+
+    function makeAmountInput() {
+      const inp = document.createElement("input");
+      inp.type = "text";
+      inp.inputMode = "decimal";
+      inp.placeholder = "$0.00";
+      inp.className = "amount-field";
+      return inp;
+    }
+
+    function makeChips(options) {
+      const wrap = document.createElement("div");
+      wrap.className = "chips";
+      const selected = new Set();
+
+      function setSelected(arr) {
+        selected.clear();
+        (arr || []).forEach((v) => selected.add(v));
+        wrap.querySelectorAll(".chip").forEach((btn) => {
+          btn.classList.toggle("on", selected.has(btn.dataset.value));
+        });
+      }
+
+      function getSelected() {
+        return Array.from(selected);
+      }
+
+      options.forEach((opt) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chip";
+        btn.textContent = opt;
+        btn.dataset.value = opt;
+
+        btn.addEventListener("click", () => {
+          const v = btn.dataset.value;
+          if (selected.has(v)) selected.delete(v);
+          else selected.add(v);
+          btn.classList.toggle("on", selected.has(v));
+          wrap.dispatchEvent(new Event("change"));
+        });
+
+        wrap.appendChild(btn);
+      });
+
+      wrap._chips = { setSelected, getSelected };
+      return wrap;
+    }
+
+    function rowHasAnyData(d) {
+      const jobTypes = (d.jobTypes || []).length;
+      return !!(
+        (d.time && d.time.trim()) ||
+        (d.customer && d.customer.trim()) ||
+        (d.invoice && d.invoice.trim()) ||
+        (d.payment && d.payment.trim()) ||
+        (d.amount && String(d.amount).trim()) ||
+        jobTypes ||
+        (d.vehicle && d.vehicle.trim()) ||
+        (d.rego && d.rego.trim()) ||
+        d.invoiced ||
+        d.emailed
+      );
+    }
+
+    function saveRow(dateStr, rowIndex, data) {
+      localStorage.setItem(rowKey(dateStr, rowIndex), JSON.stringify(data));
+      if (rowHasAnyData(data)) addDayToIndex(dateStr);
+      else removeDayFromIndexIfEmpty(dateStr);
+    }
+
+    function loadRow(dateStr, rowIndex) {
+      const raw = localStorage.getItem(rowKey(dateStr, rowIndex));
+      return raw ? JSON.parse(raw) : null;
+    }
+
+    function clearDate(dateStr) {
+      for (let i = 1; i <= JOB_COUNT; i++) {
+        localStorage.removeItem(rowKey(dateStr, i));
+      }
+      removeDayFromIndexIfEmpty(dateStr);
+      updateTotals(dateStr);
+    }
+
+    function collectRowData(controls) {
+      return {
+        time: controls.time.value,
+        customer: controls.customer.value,
+        invoice: controls.invoice.value,
+        payment: controls.payment.value,
+        amount: controls.amount.dataset.raw || controls.amount.value,
+        jobTypes: controls.jobTypes._chips.getSelected(),
+        vehicle: controls.vehicle.value,
+        rego: controls.rego.value,
+        invoiced: controls.invoiced.checked,
+        emailed: controls.emailed.checked
+      };
+    }
+
+    function applyRowData(controls, data) {
+      if (!data) return;
+
+      controls.time.value = data.time || "";
+      controls.customer.value = data.customer || "";
+      controls.invoice.value = data.invoice || "";
+      controls.payment.value = data.payment || "Account";
+
+      const rawAmount = data.amount || "";
+      controls.amount.dataset.raw = rawAmount;
+      controls.amount.value = rawAmount ? formatCurrency(rawAmount) : "";
+
+      controls.jobTypes._chips.setSelected(data.jobTypes || []);
+      controls.vehicle.value = data.vehicle || "";
+      controls.rego.value = (data.rego || "").toUpperCase();
+      controls.invoiced.checked = !!data.invoiced;
+      controls.emailed.checked = !!data.emailed;
+    }
+
+    function handleAmountFocus(input) {
+      input.value = input.dataset.raw || "";
+    }
+
+    function handleAmountInput(input) {
+      const cleaned = input.value.replace(/[^0-9.]/g, "");
+      input.value = cleaned;
+      input.dataset.raw = cleaned;
+    }
+
+    function handleAmountBlur(input) {
+      const raw = input.dataset.raw || input.value || "";
+      if (!raw.trim()) {
+        input.value = "";
+        input.dataset.raw = "";
+        return;
+      }
+      input.value = formatCurrency(raw);
+    }
+
+    function updateTotals(dateStr) {
+      let jobs = 0;
       let total = 0;
-      document.querySelectorAll(".amount").forEach(i => {
-        const v = parseFloat(i.value);
-        if (!isNaN(v)) total += v;
-      });
-      document.getElementById("totalAmount").textContent =
-        total.toLocaleString(undefined, { style: "currency", currency: "AUD" });
+      const byPay = {
+        Account: 0,
+        Cash: 0,
+        Credit: 0,
+        Other: 0
+      };
+
+      for (let i = 1; i <= JOB_COUNT; i++) {
+        const d = loadRow(dateStr, i);
+        if (!d) continue;
+
+        if (rowHasAnyData(d)) jobs++;
+
+        const amt = parseAmount(d.amount);
+        total += amt;
+
+        const pay = (d.payment || "").trim();
+        if (Object.prototype.hasOwnProperty.call(byPay, pay)) {
+          byPay[pay] += amt;
+        } else if (amt !== 0) {
+          byPay.Other += amt;
+        }
+      }
+
+      jobsCountEl.textContent = String(jobs);
+      sumAccountEl.textContent = money(byPay.Account);
+      sumCashEl.textContent = money(byPay.Cash);
+      sumCreditEl.textContent = money(byPay.Credit);
+      sumOtherEl.textContent = money(byPay.Other);
+      totalAmountEl.textContent = money(total);
     }
 
-    function buildRows() {
+    function buildTableForDate(dateStr) {
       bodyRows.innerHTML = "";
+
       for (let i = 1; i <= JOB_COUNT; i++) {
         const tr = document.createElement("tr");
 
         const tdNum = document.createElement("td");
+        tdNum.className = "rownum";
         tdNum.textContent = i;
         tr.appendChild(tdNum);
 
-        const time = makeInput("time");
-        const customer = makeInput("text");
-        const invoice = makeInput("text");
-        const payment = makeSelect(paymentOptions);
+        const controls = {
+          time: makeTimeInput(),
+          customer: makeTextInput("Customer name"),
+          invoice: makeTextInput("", "invoice-field"),
+          payment: makeSelect(paymentOptions),
+          amount: makeAmountInput(),
+          jobTypes: makeChips(jobTypeOptions),
+          vehicle: makeTextInput("e.g. Toyota Landcruiser", "vehicle-field"),
+          rego: makeTextInput("", "rego-field"),
+          invoiced: makeCheckbox(),
+          emailed: makeCheckbox()
+        };
 
-        const amount = makeInput("number");
-        amount.classList.add("amount");
-        amount.step = "0.01";
-        amount.addEventListener("input", updateTotal);
+        controls.payment.value = "Account";
 
-        const job = makeSelect(jobOptions);
-        const vehicle = makeSelect(vehicleOptions);
-        const rego = makeInput("text");
-        const invoiced = makeInput("checkbox");
-        const emailed = makeInput("checkbox");
+        controls.rego.addEventListener("input", () => {
+          controls.rego.value = controls.rego.value.toUpperCase();
+        });
 
-        [time, customer, invoice, payment, amount, job, vehicle, rego].forEach(el => {
+        controls.amount.addEventListener("focus", () => handleAmountFocus(controls.amount));
+        controls.amount.addEventListener("input", () => handleAmountInput(controls.amount));
+        controls.amount.addEventListener("blur", () => {
+          handleAmountBlur(controls.amount);
+          save();
+        });
+
+        const addCell = (el) => {
           const td = document.createElement("td");
           td.appendChild(el);
           tr.appendChild(td);
-        });
+        };
+
+        addCell(controls.time);
+        addCell(controls.customer);
+        addCell(controls.invoice);
+        addCell(controls.payment);
+        addCell(controls.amount);
+        addCell(controls.jobTypes);
+        addCell(controls.vehicle);
+        addCell(controls.rego);
 
         const tdInv = document.createElement("td");
-        tdInv.appendChild(invoiced);
+        tdInv.style.textAlign = "center";
+        const invWrap = document.createElement("div");
+        invWrap.className = "tick";
+        invWrap.appendChild(controls.invoiced);
+        tdInv.appendChild(invWrap);
         tr.appendChild(tdInv);
 
         const tdEmail = document.createElement("td");
-        tdEmail.appendChild(emailed);
+        tdEmail.style.textAlign = "center";
+        const emailWrap = document.createElement("div");
+        emailWrap.className = "tick";
+        emailWrap.appendChild(controls.emailed);
+        tdEmail.appendChild(emailWrap);
         tr.appendChild(tdEmail);
+
+        const saved = loadRow(dateStr, i);
+        applyRowData(controls, saved);
+
+        const save = () => {
+          saveRow(dateStr, i, collectRowData(controls));
+          updateTotals(dateStr);
+        };
+
+        [controls.time, controls.customer, controls.invoice, controls.payment, controls.vehicle, controls.rego]
+          .forEach((ctrl) => {
+            ctrl.addEventListener("change", save);
+            ctrl.addEventListener("input", save);
+          });
+
+        [controls.invoiced, controls.emailed].forEach((cb) => cb.addEventListener("change", save));
+        controls.jobTypes.addEventListener("change", save);
 
         bodyRows.appendChild(tr);
       }
+
+      for (let i = 1; i <= JOB_COUNT; i++) {
+        const d = loadRow(dateStr, i);
+        if (d && rowHasAnyData(d)) {
+          addDayToIndex(dateStr);
+          break;
+        }
+      }
+
+      refreshSavedDaysDropdown(dateStr);
+      updateTotals(dateStr);
     }
 
-    buildRows();
+    function openExportModal() {
+      buildDayChecklist();
+      exportModal.style.display = "flex";
+    }
 
-    exportBtn.addEventListener("click", () => {
-      const rows = [[
-        "Row","Time","Customer","Invoice","Payment","Amount","Job","Vehicle","Rego","Inv","Email"
-      ]];
+    function closeExportModal() {
+      exportModal.style.display = "none";
+    }
 
-      const trs = document.querySelectorAll("#runsheet tbody tr");
-      trs.forEach((tr, i) => {
-        const cells = tr.querySelectorAll("input,select");
-        rows.push([
-          i + 1,
-          cells[0].value,
-          cells[1].value,
-          cells[2].value,
-          cells[3].value,
-          cells[4].value,
-          cells[5].value,
-          cells[6].value,
-          cells[7].value,
-          cells[8].checked ? "YES" : "",
-          cells[9].checked ? "YES" : ""
-        ]);
+    function buildDayChecklist() {
+      const idx = getDaysIndex().slice().sort();
+      dayListEl.innerHTML = "";
+
+      const daysToShow = idx.length ? idx : [sheetDate.value];
+
+      daysToShow.forEach((day) => {
+        const row = document.createElement("label");
+        row.className = "dayItem";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = day;
+        if (day === sheetDate.value) cb.checked = true;
+
+        const text = document.createElement("div");
+        text.textContent = day;
+
+        row.appendChild(cb);
+        row.appendChild(text);
+        dayListEl.appendChild(row);
       });
 
-      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const hasCurrent = daysToShow.includes(sheetDate.value);
+      if (!hasCurrent) {
+        const row = document.createElement("label");
+        row.className = "dayItem";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = sheetDate.value;
+        cb.checked = true;
+
+        const text = document.createElement("div");
+        text.textContent = `${sheetDate.value} (current)`;
+
+        row.appendChild(cb);
+        row.appendChild(text);
+        dayListEl.insertBefore(row, dayListEl.firstChild);
+      }
+    }
+
+    function setAllChecks(state) {
+      dayListEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+        cb.checked = state;
+      });
+    }
+
+    function selectCurrentOnly() {
+      const current = sheetDate.value;
+      dayListEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+        cb.checked = (cb.value === current);
+      });
+    }
+
+    function getSelectedDaysFromModal() {
+      const selected = [];
+      dayListEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+        if (cb.checked) selected.push(cb.value);
+      });
+      return Array.from(new Set(selected)).sort();
+    }
+
+    function exportExcelSelectedDays(selectedDays) {
+      if (typeof XLSX === "undefined") {
+        alert("Excel export library failed to load.");
+        return;
+      }
+
+      if (!selectedDays || !selectedDays.length) {
+        alert("Select at least one day to export.");
+        return;
+      }
+
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Run Sheet");
-      XLSX.writeFile(wb, "runsheet.xlsx");
-    });
+
+      for (const day of selectedDays) {
+        const header = [
+          "Row","Time","Customer","Invoice","Payment","Amount","Job Types","Vehicle","Rego","Invoiced","Emailed"
+        ];
+
+        const rows = [header];
+
+        let jobs = 0;
+        let total = 0;
+        const byPay = {
+          Account: 0,
+          Cash: 0,
+          Credit: 0,
+          Other: 0
+        };
+
+        for (let i = 1; i <= JOB_COUNT; i++) {
+          const data = loadRow(day, i) || {};
+          const amt = parseAmount(data.amount);
+          const pay = (data.payment || "").trim();
+
+          if (rowHasAnyData(data)) jobs++;
+          total += amt;
+
+          if (Object.prototype.hasOwnProperty.call(byPay, pay)) {
+            byPay[pay] += amt;
+          } else if (amt !== 0) {
+            byPay.Other += amt;
+          }
+
+          rows.push([
+            i,
+            data.time || "",
+            data.customer || "",
+            data.invoice || "",
+            data.payment || "",
+            amt || 0,
+            (data.jobTypes || []).join(", "),
+            data.vehicle || "",
+            (data.rego || "").toUpperCase(),
+            data.invoiced ? "YES" : "",
+            data.emailed ? "YES" : ""
+          ]);
+        }
+
+        rows.push([]);
+        rows.push(["Totals"]);
+        rows.push(["Jobs entered", jobs]);
+        rows.push(["Account total", byPay.Account]);
+        rows.push(["Cash total", byPay.Cash]);
+        rows.push(["Credit total", byPay.Credit]);
+        rows.push(["Other total", byPay.Other]);
+        rows.push(["Daily total", total]);
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+
+        ws["!cols"] = [
+          { wch: 5 },
+          { wch: 10 },
+          { wch: 28 },
+          { wch: 12 },
+          { wch: 12 },
+          { wch: 12 },
+          { wch: 24 },
+          { wch: 24 },
+          { wch: 10 },
+          { wch: 10 },
+          { wch: 10 }
+        ];
+
+        for (let c = 0; c < header.length; c++) {
+          const addr = XLSX.utils.encode_cell({ r: 0, c });
+          if (ws[addr]) {
+            ws[addr].s = ws[addr].s || {};
+            ws[addr].s.font = { bold: true };
+          }
+        }
+
+        const amountCol = 5;
+        for (let r = 1; r <= JOB_COUNT; r++) {
+          const addr = XLSX.utils.encode_cell({ r, c: amountCol });
+          if (ws[addr]) ws[addr].z = '$#,##0.00';
+        }
+
+        const totalsStart = JOB_COUNT + 3;
+        for (let r = totalsStart; r <= totalsStart + 5; r++) {
+          const valueAddr = XLSX.utils.encode_cell({ r, c: 1 });
+          if (ws[valueAddr]) ws[valueAddr].z = '$#,##0.00';
+        }
+
+        const sheetName = String(day).slice(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      }
+
+      const fileName =
+        selectedDays.length === 1
+          ? `run-sheet-${selectedDays[0]}.xlsx`
+          : `run-sheets-${selectedDays[0]}_to_${selectedDays[selectedDays.length - 1]}.xlsx`;
+
+      XLSX.writeFile(wb, fileName);
+    }
 
     let deferredPrompt = null;
 
-    window.addEventListener("beforeinstallprompt", e => {
+    window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      showSwStatus("Install prompt captured.");
     });
 
-    installBtn.addEventListener("click", async () => {
+    document.getElementById("installBtn").addEventListener("click", async () => {
       if (!deferredPrompt) {
-        await showSwStatus("Install prompt not available.");
+        alert("Install prompt not available right now.");
         return;
       }
       deferredPrompt.prompt();
       await deferredPrompt.userChoice;
     });
 
-    resetSwBtn.addEventListener("click", async () => {
+    document.getElementById("resetSwBtn").addEventListener("click", async () => {
       try {
         if ("serviceWorker" in navigator) {
           const regs = await navigator.serviceWorker.getRegistrations();
@@ -249,6 +1123,46 @@
       } catch (e) {
         alert("Reset failed: " + (e.message || e));
       }
+    });
+
+    sheetDate.value = getTodayDateStr();
+    refreshSavedDaysDropdown();
+    buildTableForDate(sheetDate.value);
+
+    sheetDate.addEventListener("change", () => {
+      buildTableForDate(sheetDate.value);
+    });
+
+    goSavedBtn.addEventListener("click", () => {
+      if (!savedDays.value) return;
+      sheetDate.value = savedDays.value;
+      buildTableForDate(sheetDate.value);
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      const d = sheetDate.value;
+      clearDate(d);
+      buildTableForDate(d);
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", openExportModal);
+    closeExportModalBtn.addEventListener("click", closeExportModal);
+    exportModal.addEventListener("click", (e) => {
+      if (e.target === exportModal) closeExportModal();
+    });
+
+    selectAllDaysBtn.addEventListener("click", () => setAllChecks(true));
+    selectNoneDaysBtn.addEventListener("click", () => setAllChecks(false));
+    selectCurrentDayBtn.addEventListener("click", selectCurrentOnly);
+
+    exportSelectedBtn.addEventListener("click", () => {
+      const days = getSelectedDaysFromModal();
+      if (!days.length) {
+        alert("Select at least one day to export.");
+        return;
+      }
+      closeExportModal();
+      exportExcelSelectedDays(days);
     });
   </script>
 </body>
