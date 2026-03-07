@@ -28,7 +28,7 @@
     table { border-collapse: collapse; width: 100%; }
     th, td { border: 1px solid #ccc; padding: 6px; }
     th { background: #f4f4f4; }
-    input, select { width: 100%; }
+    input, select { width: 100%; box-sizing: border-box; }
   </style>
 </head>
 <body>
@@ -65,37 +65,49 @@
 
   <script>
     const swStatus = document.getElementById("swStatus");
+    const installBtn = document.getElementById("installBtn");
+    const resetSwBtn = document.getElementById("resetSwBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const bodyRows = document.getElementById("bodyRows");
 
     async function showSwStatus(extra = "") {
-      const regs = ("serviceWorker" in navigator)
-        ? await navigator.serviceWorker.getRegistrations()
-        : [];
+      let regs = [];
+      let controller = false;
+
+      if ("serviceWorker" in navigator) {
+        regs = await navigator.serviceWorker.getRegistrations();
+        controller = !!navigator.serviceWorker.controller;
+      }
+
       swStatus.textContent =
         (extra ? extra + "\n\n" : "") +
-        "controller: " + (!!navigator.serviceWorker?.controller) + "\n" +
+        "controller: " + controller + "\n" +
         "registrations: " + regs.length + "\n" +
         "scopes:\n" + (regs.map(r => r.scope).join("\n") || "(none)");
     }
 
     async function registerSw() {
-     if ("serviceWorker" in navigator) {
-  window.addEventListener("load", async () => {
-    try {
-      const reg = await navigator.serviceWorker.register("/runsheet/sw.js?v=13", {
-        scope: "/runsheet/",
-        updateViaCache: "none"
-      });
+      if (!("serviceWorker" in navigator)) {
+        await showSwStatus("Service workers not supported.");
+        return;
+      }
 
-      await navigator.serviceWorker.ready;
+      try {
+        const reg = await navigator.serviceWorker.register("/runsheet/sw.js?v=13", {
+          scope: "/runsheet/",
+          updateViaCache: "none"
+        });
 
-      console.log("SW registered:", reg.scope);
-      console.log("SW controller:", !!navigator.serviceWorker.controller);
-    } catch (e) {
-      console.log("SW failed:", e);
-      alert("SW failed: " + (e.message || e));
+        await navigator.serviceWorker.ready;
+        await showSwStatus("SW registered OK:\n" + reg.scope);
+      } catch (e) {
+        await showSwStatus(
+          "SW REGISTER FAILED:\n" +
+          "name: " + (e?.name || "(none)") + "\n" +
+          "message: " + (e?.message || String(e))
+        );
+      }
     }
-  });
-}
 
     window.addEventListener("load", registerSw);
 
@@ -103,7 +115,6 @@
     const paymentOptions = ["Account", "Cash", "Credit", "Other"];
     const jobOptions = ["DMF", "DMR", "DR", "FLY", "CLUTCH", "OTHER"];
     const vehicleOptions = ["Car", "SUV", "Ute", "Van", "Truck", "Other"];
-    const bodyRows = document.getElementById("bodyRows");
 
     function makeInput(type) {
       const i = document.createElement("input");
@@ -148,6 +159,7 @@
 
         const amount = makeInput("number");
         amount.classList.add("amount");
+        amount.step = "0.01";
         amount.addEventListener("input", updateTotal);
 
         const job = makeSelect(jobOptions);
@@ -176,7 +188,7 @@
 
     buildRows();
 
-    document.getElementById("exportBtn").onclick = () => {
+    exportBtn.addEventListener("click", () => {
       const rows = [[
         "Row","Time","Customer","Invoice","Payment","Amount","Job","Vehicle","Rego","Inv","Email"
       ]];
@@ -203,38 +215,41 @@
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Run Sheet");
       XLSX.writeFile(wb, "runsheet.xlsx");
-    };
+    });
 
     let deferredPrompt = null;
 
     window.addEventListener("beforeinstallprompt", e => {
       e.preventDefault();
       deferredPrompt = e;
+      showSwStatus("Install prompt captured.");
     });
 
-    document.getElementById("installBtn").onclick = async () => {
+    installBtn.addEventListener("click", async () => {
       if (!deferredPrompt) {
         await showSwStatus("Install prompt not available.");
         return;
       }
       deferredPrompt.prompt();
       await deferredPrompt.userChoice;
-    };
+    });
 
-    document.getElementById("resetSwBtn").onclick = async () => {
-      if ("serviceWorker" in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        for (const r of regs) await r.unregister();
+    resetSwBtn.addEventListener("click", async () => {
+      try {
+        if ("serviceWorker" in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) await r.unregister();
+        }
+
+        const keys = await caches.keys();
+        for (const k of keys) await caches.delete(k);
+
+        alert("Service Worker Reset");
+        location.reload();
+      } catch (e) {
+        alert("Reset failed: " + (e.message || e));
       }
-
-      const keys = await caches.keys();
-      for (const k of keys) await caches.delete(k);
-
-      alert("Service Worker Reset");
-      location.reload();
-    };
+    });
   </script>
 </body>
-
 </html>
-
