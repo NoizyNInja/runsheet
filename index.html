@@ -120,7 +120,7 @@
     table{
       border-collapse:separate;
       border-spacing:0;
-      width:1460px;
+      width:1700px;
       min-width:100%;
     }
 
@@ -177,6 +177,10 @@
     }
     input[type = "time"]{
       min-width:80px;
+    }
+
+    .customer-field{
+      min-width:280px;
     }
     
     .invoice-field{
@@ -821,7 +825,7 @@
 
         const controls = {
           time: makeTimeInput(),
-          customer: makeTextInput("Customer name"),
+          customer: makeTextInput("Customer name", "customer-field"),
           invoice: makeTextInput("", "invoice-field"),
           payment: makeSelect(paymentOptions),
           amount: makeAmountInput(),
@@ -1170,6 +1174,7 @@
   </script>
 </body>
 </html>
+
 
 
 
