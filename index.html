@@ -16,7 +16,7 @@
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", async () => {
         try {
-          await navigator.serviceWorker.register("/runsheet/sw.js?v=26", {
+          await navigator.serviceWorker.register("/runsheet/sw.js?v=27", {
             scope: "/runsheet/",
             updateViaCache: "none"
           });
@@ -175,14 +175,15 @@
       background:#fff;
       box-sizing:border-box;
     }
-    input[type = "time"]{
+
+    input[type="time"]{
       min-width:80px;
     }
 
     .customer-field{
       min-width:280px;
     }
-    
+
     .invoice-field{
       min-width:90px;
     }
@@ -402,6 +403,7 @@
       <button type="button" id="resetSwBtn">Reset SW</button>
       <button type="button" id="clearBtn">Clear This Day</button>
       <button type="button" id="exportBtn">Export Excel</button>
+      <button type="button" id="weeklyExportBtn">Weekly Export</button>
     </div>
   </div>
 
@@ -461,7 +463,7 @@
   </div>
 
   <div class="hint">
-    Rows save automatically to the selected date. Export can include one or multiple saved dates.
+    Rows save automatically to the selected date. Press Enter to jump to the next field. Weekly Export exports Monday-Friday for the selected date's week.
   </div>
 
   <div class="modalOverlay" id="exportModal">
@@ -496,6 +498,7 @@
     const sheetDate = document.getElementById("sheetDate");
     const savedDays = document.getElementById("savedDays");
     const goSavedBtn = document.getElementById("goSavedBtn");
+    const weeklyExportBtn = document.getElementById("weeklyExportBtn");
 
     const jobsCountEl = document.getElementById("jobsCount");
     const totalAmountEl = document.getElementById("totalAmount");
@@ -520,6 +523,30 @@
       const mm = String(today.getMonth() + 1).padStart(2, "0");
       const dd = String(today.getDate()).padStart(2, "0");
       return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function formatDateObj(date) {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function getWeekdayDatesFromSelectedDate(dateStr) {
+      const base = new Date(dateStr + "T00:00:00");
+      const day = base.getDay(); // Sun=0, Mon=1 ... Sat=6
+
+      const mondayOffset = day === 0 ? -6 : 1 - day;
+      const monday = new Date(base);
+      monday.setDate(base.getDate() + mondayOffset);
+
+      const dates = [];
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        dates.push(formatDateObj(d));
+      }
+      return dates;
     }
 
     function rowKey(dateStr, rowIndex) {
@@ -583,6 +610,14 @@
         setDaysIndex(idx);
         refreshSavedDaysDropdown();
       }
+    }
+
+    function dayHasAnySavedData(dateStr) {
+      for (let i = 1; i <= JOB_COUNT; i++) {
+        const d = loadRow(dateStr, i);
+        if (d && rowHasAnyData(d)) return true;
+      }
+      return false;
     }
 
     function parseAmount(value) {
@@ -777,6 +812,29 @@
       input.value = formatCurrency(raw);
     }
 
+    function getFocusableControlsInOrder() {
+      return Array.from(
+        bodyRows.querySelectorAll('input[type="time"], input[type="text"], select, .amount-field')
+      );
+    }
+
+    function handleEnterMove(e) {
+      if (e.key !== "Enter") return;
+
+      e.preventDefault();
+
+      const controls = getFocusableControlsInOrder();
+      const currentIndex = controls.indexOf(e.target);
+
+      if (currentIndex === -1) return;
+
+      const next = controls[currentIndex + 1];
+      if (next) {
+        next.focus();
+        if (typeof next.select === "function") next.select();
+      }
+    }
+
     function updateTotals(dateStr) {
       let jobs = 0;
       let total = 0;
@@ -847,6 +905,18 @@
         controls.amount.addEventListener("blur", () => {
           handleAmountBlur(controls.amount);
           save();
+        });
+
+        [
+          controls.time,
+          controls.customer,
+          controls.invoice,
+          controls.payment,
+          controls.amount,
+          controls.vehicle,
+          controls.rego
+        ].forEach((ctrl) => {
+          ctrl.addEventListener("keydown", handleEnterMove);
         });
 
         const addCell = (el) => {
@@ -1171,13 +1241,18 @@
       closeExportModal();
       exportExcelSelectedDays(days);
     });
+
+    weeklyExportBtn.addEventListener("click", () => {
+      const weekDates = getWeekdayDatesFromSelectedDate(sheetDate.value);
+      const datesWithData = weekDates.filter(dayHasAnySavedData);
+
+      if (!datesWithData.length) {
+        alert("No saved data found for this week.");
+        return;
+      }
+
+      exportExcelSelectedDays(datesWithData);
+    });
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
