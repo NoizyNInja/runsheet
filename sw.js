@@ -1,6 +1,6 @@
-const CACHE_NAME = "runsheet-v20";
+const CACHE_NAME = "runsheet-v13";
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
@@ -9,5 +9,5 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", () => {
-  // Intentionally empty for now
+  // Minimal SW for install testing
 });
